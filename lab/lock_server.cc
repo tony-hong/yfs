@@ -12,6 +12,16 @@ lock_server::lock_server():
 	assert(pthread_mutex_init(&map_mutex, NULL) == 0);
 }
 
+lock_server::~lock_server()
+{
+  for (std::map<lock_protocol::lockid_t, pthread_mutex_t>::iterator it = lock_map.begin(); it != lock_map.end(); it++)
+  {
+    assert(pthread_mutex_destroy(&it->second) == 0);
+  }
+  assert(pthread_mutex_destroy(&map_mutex) == 0);
+}
+
+
 lock_protocol::status
 lock_server::stat(int clt, lock_protocol::lockid_t lid, int &r)
 {
