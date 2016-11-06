@@ -3,6 +3,14 @@
 
 #include <pthread.h>
 #include <assert.h>
+
+/** a lock for code blocks 
+    {
+        pthread_mutex_t m;
+        pthread_mutex_init(m, 0);
+        ScopedLock(&m);
+    }
+*/
 struct ScopedLock {
 	private:
 		pthread_mutex_t *m_;

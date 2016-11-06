@@ -216,6 +216,8 @@ rpcc::call1(unsigned int proc, marshall &req, unmarshall &rep,
 		{
 			ScopedLock cal(&ca.m);
 			while (!ca.done) {
+				// if awake, returns 0
+				// if timeout, returns ETIMEDOUT
 				if (pthread_cond_timedwait(&ca.c, &ca.m, &nextdeadline) == ETIMEDOUT)
 					break;
 			}
@@ -562,6 +564,7 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 		char *b, int sz)
 {
 	ScopedLock rwl(&reply_window_m_);
+		// TODO
 }
 
 void
@@ -583,9 +586,8 @@ rpcs::free_reply_window(void)
 rpcs::rpcstate_t 
 rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 		unsigned int xid_rep, char **b, int *sz)
-{
-	ScopedLock rwl(&reply_window_m_);
-
+{	
+	ScopedLock rwl(&reply_window_m_);	// TODO
 	return NEW;
 }
 
