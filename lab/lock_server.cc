@@ -18,8 +18,7 @@ lock_server::~lock_server()
   assert(pthread_mutex_lock (&map_mutex) == 0);
   lock_map.clear();
   assert(pthread_mutex_unlock (&map_mutex) == 0);
-
-  assert(pthread_mutex_destroy(&lock_map) == 0);
+  assert(pthread_mutex_destroy(&map_mutex) == 0);
 }
 
 
