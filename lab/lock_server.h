@@ -16,8 +16,9 @@ class lock_server {
 
  protected:
   int nacquire;
-  std::map<lock_protocol::lockid_t, pthread_mutex_t> lock_map; // each id can be associated with a mutex
+  std::map<lock_protocol::lockid_t, int> lock_map; // <lockid, client id (nonce) who holds the lock>
   pthread_mutex_t map_mutex; //a mutex for the mutex_map so that only one thread can read/write the data in the map in a
+  pthread_cond_t lock_condition;
 
  public:
   lock_server();
