@@ -564,7 +564,20 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 		char *b, int sz)
 {
 	ScopedLock rwl(&reply_window_m_);
-		// TODO
+
+	std::list<reply_t> list = reply_window_[clt_nonce];
+	std::list<reply_t>::iterator it;
+	for (it  = list.begin(); it != list.end(); it++) {
+		if (it->xid == xid){
+			it->cb_present = true;
+			// TODO: char copy
+			it->buf = (char *)malloc(sizeof(sz));
+			memcpy(it->buf, b, sz);
+			it->sz = sz;
+			break;
+		}
+	}
+	// assert(reply_window_.find(clt_nonce) == reply_window_.end());
 }
 
 void
@@ -587,8 +600,39 @@ rpcs::rpcstate_t
 rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 		unsigned int xid_rep, char **b, int *sz)
 {	
-	ScopedLock rwl(&reply_window_m_);	// TODO
+	ScopedLock rwl(&reply_window_m_);
+
+	std::list<reply_t>::iterator it;
+
+	std::list<reply_t> list = reply_window_[clt_nonce];
+	for (it = list.begin(); it != list.end();) {
+		if (it->xid == xid){
+			if (!it->cb_present)
+				return INPROGRESS;
+			else {
+				b = &it->buf;
+				sz = &it->sz;
+				return DONE;
+			}
+		}
+		// smaller than the xid_rep, is FORGOTTEN
+		if (it->xid <= xid_rep){
+			free(it->buf);
+			it = list.erase(it);
+			return FORGOTTEN;
+		} else{
+			it++;
+		}
+	}
+
+	// not seen in the list, is NEW
+	struct rpcs::reply_t rt(xid);
+	std::list<reply_t> reply_t_list = reply_window_[clt_nonce];
+	reply_t_list.push_back(rt);
 	return NEW;
+
+
+	// jsl_log(JSL_DBG_2, "rpcs::checkduplicate_and_update internal error: clt_nonce %u not found\n", clt_nonce);
 }
 
 //rpc handler
