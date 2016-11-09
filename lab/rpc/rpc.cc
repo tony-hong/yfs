@@ -570,8 +570,8 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 	for (it  = reply_list.begin(); it != reply_list.end(); it++) {
 		if (it->xid == xid){
 			it->cb_present = true;
-			// TODO: char copy
-			it->buf = (char *)malloc(sizeof(sz));
+			
+			it->buf = (char *)malloc(sz);
 			memcpy(it->buf, b, sz);
 			it->sz = sz;
 			break;
