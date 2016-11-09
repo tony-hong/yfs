@@ -570,7 +570,7 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 	for (it  = reply_list.begin(); it != reply_list.end(); it++) {
 		if (it->xid == xid){
 			it->cb_present = true;
-			
+
 			it->buf = (char *)malloc(sz);
 			memcpy(it->buf, b, sz);
 			it->sz = sz;
@@ -612,8 +612,6 @@ rpcs::checkduplicate_and_update(unsigned int clt_nonce, unsigned int xid,
 			jsl_log(JSL_DBG_1, "reply_list.size(): %lu\n", reply_list.size());
 
 			if (it->xid <= xid_rep){
-				free(it->buf);
-				it = reply_list.erase(it);
 				state = FORGOTTEN;
 				// break;
 			} else if (!it->cb_present) {
