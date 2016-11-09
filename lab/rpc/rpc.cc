@@ -571,8 +571,9 @@ rpcs::add_reply(unsigned int clt_nonce, unsigned int xid,
 		if (it->xid == xid){
 			it->cb_present = true;
 
-			it->buf = (char *)malloc(sz);
-			memcpy(it->buf, b, sz);
+			// it->buf = (char *)malloc(sz);
+			// memcpy(it->buf, b, sz);
+			it->buf = b;
 			it->sz = sz;
 			break;
 		}
