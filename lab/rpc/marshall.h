@@ -6,11 +6,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define max(a,b) ((a>b)?a:b)
 
 struct req_header {
 	req_header(int x=0, int p=0, int c = 0, int s = 0, int xi = 0):
@@ -31,16 +30,15 @@ struct reply_header {
 typedef uint64_t rpc_checksum_t;
 typedef int rpc_sz_t;
 
-enum {
-	//size of initial buffer allocation 
-	DEFAULT_RPC_SZ = 1024,
+//size of initial buffer allocation 
+const int DEFAULT_RPC_SZ = 1024;
+
 #if RPC_CHECKSUMMING
 	//size of rpc_header includes a 4-byte int to be filled by tcpchan and uint64_t checksum
-	RPC_HEADER_SZ = max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t) + sizeof(rpc_checksum_t)
+	const int RPC_HEADER_SZ = std::max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t) + sizeof(rpc_checksum_t);
 #else
-		RPC_HEADER_SZ = max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t)
+	const int RPC_HEADER_SZ = std::max(sizeof(req_header), sizeof(reply_header)) + sizeof(rpc_sz_t);
 #endif
-};
 
 class marshall {
 	private:
