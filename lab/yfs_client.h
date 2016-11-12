@@ -11,6 +11,7 @@
   extent_client *ec;
  public:
 
+  // unique identifier, 64-bit identifier
   typedef unsigned long long inum;
   enum xxstatus { OK, RPCERR, NOENT, IOERR, FBIG };
   typedef int status;

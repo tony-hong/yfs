@@ -12,9 +12,13 @@ class extent_server {
  public:
   extent_server();
 
+  // The put and get RPCs are used to update and retrieve an extent's contents.
   int put(extent_protocol::extentid_t id, std::string, int &);
   int get(extent_protocol::extentid_t id, std::string &);
+
+  // The getattr RPC retrieves an extent's attributes. 
   int getattr(extent_protocol::extentid_t id, extent_protocol::attr &);
+  
   int remove(extent_protocol::extentid_t id, int &);
 };
 

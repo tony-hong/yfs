@@ -19,9 +19,13 @@ class extent_protocol {
   static const unsigned int maxextent = 8192*1000;
 
   struct attr {
+    // last access time (atime)
     unsigned int atime;
+    // last modification time (mtime)
     unsigned int mtime;
+    // change time (ctime)
     unsigned int ctime;
+    // the file size
     unsigned int size;
   };
 };
