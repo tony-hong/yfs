@@ -27,3 +27,9 @@
 *.exe
 *.out
 *.app
+CMakeLists.txt
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.idea/yfs.iml
