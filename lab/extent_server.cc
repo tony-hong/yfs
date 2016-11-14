@@ -40,14 +40,12 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 
         at.size = buf.size();
         at.atime = at.mtime = at.ctime = now.tv_sec;
-    } else if (_extent_content_map[id].size() + buf.size() > extent_protocol::maxextent) {
-        status = extent_protocol::FBIG;
     } else {
-        _extent_content_map[id].append(buf);
-
         assert(_extent_attr_map.find(id) != _extent_attr_map.end());
+
+        _extent_content_map[id] = buf;
         extent_protocol::attr at = _extent_attr_map[id];
-        at.size += buf.size();
+        at.size = buf.size();
         at.atime = at.mtime = at.ctime = now.tv_sec;
     }
     return status;
@@ -63,11 +61,10 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf)
         buf = _extent_content_map[id];
 
         assert(_extent_attr_map.find(id) != _extent_attr_map.end());
-        extent_protocol::attr at = _extent_attr_map[id];
         struct timespec now;
         clock_gettime(CLOCK_REALTIME, &now);
 
-        at.atime = now.tv_sec;
+        _extent_attr_map[id].atime = now.tv_sec;
     }
     return status;
 }
