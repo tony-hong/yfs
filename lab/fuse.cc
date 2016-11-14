@@ -21,6 +21,18 @@
 int myid;
 yfs_client *yfs;
 
+//generate a 64bit (long long) number
+unsigned long long llrand() {
+    unsigned long long r = 0;
+
+    for (int i = 0; i < 5; ++i) {
+        r = (r << 15) | (rand() & 0x7FFF);
+    }
+
+    return r & 0xFFFFFFFFFFFFFFFFULL;
+}
+
+
 int id() { 
   return myid;
 }
@@ -124,11 +136,21 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
 yfs_client::status
 fuseserver_createhelper(fuse_ino_t parent, const char *name,
      mode_t mode, struct fuse_entry_param *e)
-// fuse_ino_t : unsigned long  (MacOS)
+// fuse_ino_t : unsigned long  (MacOS, Ubuntu)
 // mode_t     : unsigned short (MacOS)
 // fuse_entry_param : struct {fuse_ino_t, stat(stat defined in system fs ), ...} (MacOS)
 {
-// TODO
+// TODO: move to yfs client
+  //yfs_client::inum file_ino = (yfs_client::inum)llrand();
+  //fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
+  e->ino = fuse_ino;
+  e->attr.st_mode = mode;
+  e->attr_timeout = 0.0;
+  e->entry_timeout = 0.0;
+  e->generation = 0;
+
+  ret = yfs->putfile(file_ino, parent, name);
+
   return yfs_client::NOENT;
 }
 
