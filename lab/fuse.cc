@@ -61,7 +61,7 @@ getattr(yfs_client::inum inum, struct stat &st)
    return yfs_client::OK;
 }
 
-
+// example
 void
 fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
           struct fuse_file_info *fi)
@@ -124,8 +124,11 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
 yfs_client::status
 fuseserver_createhelper(fuse_ino_t parent, const char *name,
      mode_t mode, struct fuse_entry_param *e)
+// fuse_ino_t : unsigned long  (MacOS)
+// mode_t     : unsigned short (MacOS)
+// fuse_entry_param : struct {fuse_ino_t, stat(stat defined in system fs ), ...} (MacOS)
 {
-  // You fill this in
+// TODO
   return yfs_client::NOENT;
 }
 
@@ -160,7 +163,7 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
 
-  // You fill this in:
+// TODO
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
@@ -216,7 +219,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   memset(&b, 0, sizeof(b));
 
-
+// TODO
    // fill in the b data structure using dirbuf_add
 
 
@@ -229,7 +232,7 @@ void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
-  // You fill this in
+// TODO
 #if 0
   fuse_reply_open(req, fi);
 #else
@@ -260,6 +263,7 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
   fuse_reply_err(req, ENOSYS);
 }
 
+// example
 void
 fuseserver_statfs(fuse_req_t req)
 {
