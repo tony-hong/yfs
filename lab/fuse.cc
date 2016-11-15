@@ -231,6 +231,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
   yfs_client::inum inum = ino; // req->in.h.nodeid;
   struct dirbuf b;
   yfs_client::dirent e;
+  yfs_client::dirinfo din;
 
   printf("fuseserver_readdir\n");
 
@@ -241,9 +242,14 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   memset(&b, 0, sizeof(b));
 
-// TODO
+// TOTEST
    // fill in the b data structure using dirbuf_add
+  yfs->getdirent(inum, e);
+  yfs->getdir(inum, din);
 
+    // type cast
+    const char *ps = e.name.c_str();
+    dirbuf_add(&b, ps, inum);
 
    reply_buf_limited(req, b.p, b.size, off, size);
    free(b.p);
