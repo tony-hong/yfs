@@ -141,17 +141,24 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 // fuse_entry_param : struct {fuse_ino_t, stat(stat defined in system fs ), ...} (MacOS)
 {
 // TODO: move to yfs client
-  //yfs_client::inum file_ino = (yfs_client::inum)llrand();
-  //fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
+  int r = yfs_client::OK;
+
+  yfs_client::inum file_ino = (yfs_client::inum)llrand();
+  fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
+
+
+
+  // if(yfs->putfile(file_ino, parent, name) == yfs_client::OK)
+
   //e->ino = fuse_ino;
   //e->attr.st_mode = mode;
   //e->attr_timeout = 0.0;
   //e->entry_timeout = 0.0;
   //e->generation = 0;
 
-  //ret = yfs->putfile(file_ino, parent, name);
 
-  return yfs_client::NOENT;
+
+  return r;
 }
 
 void

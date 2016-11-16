@@ -39,8 +39,8 @@ class yfs_client {
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
-  static int serialize(const std::map<std::string, inum> &, std::string &);
-  static int deserialize(const std::string &, std::map<std::string, inum> &);
+  static int serialize(const dirmap &, std::string &);
+  static int deserialize(const std::string &, dirmap &);
  
  public:
 
