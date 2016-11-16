@@ -10,7 +10,15 @@
 #include <fcntl.h>
 
 extent_server::extent_server() {
+    _extent_content_map[1] = "";
 
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    
+    extent_protocol::attr at;
+    at.size = buf.size();
+    at.atime = at.mtime = at.ctime = now.tv_sec;
+    _extent_attr_map[1] = at;
 }
 
 extent_server::~extent_server() {
@@ -24,26 +32,26 @@ extent_server::~extent_server() {
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 {
     extent_protocol::xxstatus status = extent_protocol::OK;
-    struct timespec now;
-    clock_gettime(CLOCK_REALTIME, &now);
 
     if (buf.size() > extent_protocol::maxextent) {
         status = extent_protocol::FBIG;
-    } else if (_extent_content_map.find(id) == _extent_content_map.end()){
-        // create content pair
-        assert(_extent_content_map[id].size() == 0);
-        _extent_content_map[id] = buf;
+    } else {    
+        if (_extent_content_map.find(id) == _extent_content_map.end()){
+            // create content pair
+            assert(_extent_content_map[id].size() == 0);
+            _extent_content_map[id] = buf;
 
-        // create attribute pair
-        assert(_extent_attr_map[id].size == 0);
-        extent_protocol::attr at = _extent_attr_map[id];
+            // create attribute pair
+            assert(_extent_attr_map[id].size == 0);
+        } else {
+            assert(_extent_attr_map.find(id) != _extent_attr_map.end());
 
-        at.size = buf.size();
-        at.atime = at.mtime = at.ctime = now.tv_sec;
-    } else {
-        assert(_extent_attr_map.find(id) != _extent_attr_map.end());
-
-        _extent_content_map[id] = buf;
+            // change to append?
+            _extent_content_map[id] = buf;
+        }
+        struct timespec now;
+        clock_gettime(CLOCK_REALTIME, &now);
+        
         extent_protocol::attr at = _extent_attr_map[id];
         at.size = buf.size();
         at.atime = at.mtime = at.ctime = now.tv_sec;
@@ -95,6 +103,7 @@ int extent_server::remove(extent_protocol::extentid_t id, int &)
         status = extent_protocol::NOENT;
     } else {
         _extent_content_map.erase(id);
+        assert(_extent_attr_map.find(id) != _extent_attr_map.end());
         _extent_attr_map.erase(id);
     }
     return status;
