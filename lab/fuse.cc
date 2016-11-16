@@ -185,10 +185,29 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;
 
-// TODO
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
+
+  yfs_client::inum ino;
+  yfs_client::fileinfo file_info;
+
+  std::string file_name(name);
+  std::string file_buf;
+
+  if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
+  {
+      e.ino = ino;
+      // assert(yfs->getbuf(ino, buf) == yfs_client::OK);
+      assert(yfs->getfile(ino, file_info) == yfs_client::OK);
+      // e.attr.st_blocks = buf;
+      e.attr.st_size = file_info.size;
+      e.attr.st_atim = file_info.atime;
+      e.attr.st_mtim = file_info.mtime;
+      e.attr.st_ctim = file_info.ctime;
+
+      found = true;
+  }
 
   if (found)
     fuse_reply_entry(req, &e);

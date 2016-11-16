@@ -91,29 +91,54 @@ yfs_client::getdir(inum inum, dirinfo &din)
 }
 
 int
-yfs_client::getdirent(inum dir_ino, std::string file_name, dirent &e)
-{
+yfs_client::getcontent(inum ino, std::string &buf){
   int r = OK;
+  printf("getcontent %016llx\n", ino);
 
-  printf("getdirent %016llx\n", dir_ino);
-  std::string buf;
-  if (ec->get(dir_ino, buf) != extent_protocol::OK) {
-    r = NOENT;
-    goto release;
-  }
-
-  std::map<inum, std::string> dirmap;
-  if (deserialize(buf, &dirmap) != OK){
+  if (ec->get(ino, buf) != extent_protocol::OK) {
     r = IOERR;
     goto release;
   }
 
-  if (dirmap.find(file_name) == dirmap.end()){
+release:
+  return r;
+}
+
+int
+yfs_client::getdirmap(inum dir_ino, dirmap &m){
+  int r = OK;
+  std::string buf;
+  
+  if (getcontent(dir_ino, buf) != extent_protocol::OK) {
+    r = NOENT;
+    goto release;
+  }  
+
+  if (deserialize(buf, m) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+ release:
+  return r;
+}
+
+int
+yfs_client::lookup(inum dir_ino, std::string file_name, inum & file_ino)
+{
+  int r = OK;
+
+  dirmap dir_map;
+  if (getdirmap(dir_ino, dir_map) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+  if (dir_map.find(file_name) == dir_map.end()){
     r = NOENT;
     goto release;
   }
-  e.name = file_name;
-  e.inum = dirmap[file_name];
+  file_ino = dir_map[file_name];
 
  release:
   return r;
@@ -122,7 +147,7 @@ yfs_client::getdirent(inum dir_ino, std::string file_name, dirent &e)
 
 
 int
-yfs_client::serialize(const std::map<std::string, inum> &dirmap, std::string &buf)
+yfs_client::serialize(const dirmap &dirmap, std::string &buf)
 {
   int r = OK;
   unsigned int size = dirmap.size();
@@ -138,14 +163,14 @@ yfs_client::serialize(const std::map<std::string, inum> &dirmap, std::string &bu
 }
 
 int
-yfs_client::deserialize(const std::string &buf, std::map<std::string, inum> &dirmap)
+yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
 {
     int r = OK;
     const char* cbuf = buf.c_str();
     unsigned int size_buf = buf.size();
     unsigned int size_fl = *(unsigned int*)cbuf;
     unsigned int p = 0;
-    unsigned int size_name;
+    unsigned int size_name = 0;
     inum id;
     std::string name;
 
@@ -155,7 +180,7 @@ yfs_client::deserialize(const std::string &buf, std::map<std::string, inum> &dir
         return r;
     }
 
-    printf("deserialize size = %d\n", size);
+    printf("deserialize size = %d\n", size_buf);
     p += sizeof(unsigned int);
     for (unsigned int i = 0; i < size_fl; i++)
     {
@@ -177,7 +202,7 @@ yfs_client::deserialize(const std::string &buf, std::map<std::string, inum> &dir
         if (p >= size_buf)
             return IOERR;
 
-        dirmap.push_back(std::make_pair<inum, std::string>(id, name));
+        dir_map[name] = id;
         printf("id = %016llx name = %s\n", id, name.c_str());
     }
     return r;

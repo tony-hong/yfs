@@ -4,7 +4,7 @@
 #include <string>
 //#include "yfs_protocol.h"
 #include "extent_client.h"
-#include <vector>
+#include <map>
 
 #define foreach(container,it) \
     for(typeof((container).begin()) it = (container).begin();it!=(container).end();++it)
@@ -18,6 +18,7 @@ class yfs_client {
   typedef unsigned long long inum;
   enum xxstatus { OK, RPCERR, NOENT, IOERR, FBIG };
   typedef int status;
+  typedef std::map<std::string, inum> dirmap;
 
   struct fileinfo {
     unsigned long long size;
@@ -52,7 +53,10 @@ class yfs_client {
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
   
-  int getdirent(inum, std::string, dirent &);  
+  // obtain content from content map
+  int getcontent(inum, std::string &);
+  int getdirmap(inum, dirmap &);
+  int lookup(inum , std::string, inum &);
 };
 
 #endif 
