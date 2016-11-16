@@ -43,18 +43,24 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
 
             // create attribute pair
             assert(_extent_attr_map[id].size == 0);
+
+            struct timespec now;
+            clock_gettime(CLOCK_REALTIME, &now);
+            
+            extent_protocol::attr at = _extent_attr_map[id];
+            at.size = buf.size();
+            at.atime = at.mtime = at.ctime = now.tv_sec;            
         } else {
             assert(_extent_attr_map.find(id) != _extent_attr_map.end());
 
             // change to append?
-            _extent_content_map[id] = buf;
+            status = extent_protocol::IOERR;
+            // _extent_content_map[id] = buf;
+            // extent_protocol::attr at = _extent_attr_map[id];
+            // at.size = buf.size();
+            // at.atime = at.mtime = at.ctime = now.tv_sec;
         }
-        struct timespec now;
-        clock_gettime(CLOCK_REALTIME, &now);
-        
-        extent_protocol::attr at = _extent_attr_map[id];
-        at.size = buf.size();
-        at.atime = at.mtime = at.ctime = now.tv_sec;
+
     }
     return status;
 }
