@@ -43,7 +43,6 @@ class yfs_client {
   static int deserialize(const std::string &, dirmap &);
  
  public:
-
   yfs_client(std::string, std::string);
 
   bool isfile(inum);
@@ -57,6 +56,9 @@ class yfs_client {
   int getcontent(inum, std::string &);
   int getdirmap(inum, dirmap &);
   int lookup(inum , std::string, inum &);
+  int putcontent(inum, const std::string &);
+  int putdirmap(inum, const dirmap &);
+
 };
 
 #endif 

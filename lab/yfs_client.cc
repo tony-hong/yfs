@@ -158,6 +158,29 @@ release:
   return r;
 }
 
+int
+yfs_client::putdirmap(inum dir_ino, const dirmap &m){
+  int r = OK;
+  std::string buf;
+  
+  if (getdir(dir_ino, dirinfo) != OK) {
+    r = NOENT;
+    goto release;
+  }  
+
+  if (serialize(m, buf) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+  if (putcontent(dir_ino, buf) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+ release:
+  return r;
+}
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)

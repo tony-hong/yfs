@@ -140,24 +140,33 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 // mode_t     : unsigned short (MacOS)
 // fuse_entry_param : struct {fuse_ino_t, stat(stat defined in system fs ), ...} (MacOS)
 {
-// TODO: move to yfs client
+// TOTEST
   int r = yfs_client::OK;
 
-  yfs_client::inum file_ino = (yfs_client::inum)llrand();
-  fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
+  yfs_client::dirmap m;
 
+  if (yfs->getdirmap(parent, m) == yfs_client::OK){
+    yfs_client::inum file_ino = (yfs_client::inum)llrand();
+    fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
 
+    std::string file_name(name);
+    m[name] = file_ino;
 
-  // if(yfs->putfile(file_ino, parent, name) == yfs_client::OK)
+    std::string buf;
+    assert(yfs->putdirmap(parent, m) == yfs_client::OK);
 
-  //e->ino = fuse_ino;
-  //e->attr.st_mode = mode;
-  //e->attr_timeout = 0.0;
-  //e->entry_timeout = 0.0;
-  //e->generation = 0;
+    assert(yfs->putcontent(file_ino, "") == yfs_client::OK);
 
+    e->ino = fuse_ino;
+    e->attr.st_mode = mode;
+    e->attr_timeout = 0.0;
+    e->entry_timeout = 0.0;
+    e->generation = 0;
 
+    return r;
+  }
 
+  r = yfs_client::IOERR;
   return r;
 }
 
