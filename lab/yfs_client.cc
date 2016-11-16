@@ -144,6 +144,19 @@ yfs_client::lookup(inum dir_ino, std::string file_name, inum & file_ino)
   return r;
 }
 
+int
+yfs_client::putcontent(inum ino, const std::string &buf){
+  int r = OK;
+  printf("getcontent %016llx\n", ino);
+
+  if (ec->put(ino, buf, 0) != extent_protocol::OK) {
+    r = FBIG;
+    goto release;
+  }
+
+release:
+  return r;
+}
 
 
 int
