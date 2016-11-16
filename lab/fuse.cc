@@ -143,13 +143,13 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 // TODO: move to yfs client
   //yfs_client::inum file_ino = (yfs_client::inum)llrand();
   //fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
-  e->ino = fuse_ino;
-  e->attr.st_mode = mode;
-  e->attr_timeout = 0.0;
-  e->entry_timeout = 0.0;
-  e->generation = 0;
+  //e->ino = fuse_ino;
+  //e->attr.st_mode = mode;
+  //e->attr_timeout = 0.0;
+  //e->entry_timeout = 0.0;
+  //e->generation = 0;
 
-  ret = yfs->putfile(file_ino, parent, name);
+  //ret = yfs->putfile(file_ino, parent, name);
 
   return yfs_client::NOENT;
 }
@@ -195,16 +195,18 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   std::string file_name(name);
   std::string file_buf;
 
+  //TODO: check whether parent is a dir.
+
   if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
   {
       e.ino = ino;
       // assert(yfs->getbuf(ino, buf) == yfs_client::OK);
       assert(yfs->getfile(ino, file_info) == yfs_client::OK);
       // e.attr.st_blocks = buf;
-      e.attr.st_size = file_info.size;
-      e.attr.st_atim = file_info.atime;
-      e.attr.st_mtim = file_info.mtime;
-      e.attr.st_ctim = file_info.ctime;
+      e.attr.st_size = (long)file_info.size;
+      e.attr.st_atim = (long)file_info.atime;
+      e.attr.st_mtim = (long)file_info.mtime;
+      e.attr.st_ctim = (long)file_info.ctime;
 
       found = true;
   }
@@ -254,7 +256,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   printf("fuseserver_readdir\n");
 
- if(!yfs->isdir(inum)){
+  if(!yfs->isdir(inum)){
     fuse_reply_err(req, ENOTDIR);
     return;
   }
@@ -263,12 +265,15 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
 // TOTEST
    // fill in the b data structure using dirbuf_add
-  yfs->getdirent(inum, e);
-  yfs->getdir(inum, din);
+  dirmap m;
+  if (yfs->getdirmap(inum, m) == yfs_client::OK){
+    foreach(m, dirmap::iterator it){
+      std::string name (it->first);
+      inum i = it->second;
+      dirbuf_add(&b, name.c_str(), i);
 
-    // type cast
-    const char *ps = e.name.c_str();
-    dirbuf_add(&b, ps, inum);
+    }
+  }
 
    reply_buf_limited(req, b.p, b.size, off, size);
    free(b.p);
