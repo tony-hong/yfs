@@ -6,8 +6,11 @@
 #include "extent_client.h"
 #include <vector>
 
+#define foreach(container,it) \
+    for(typeof((container).begin()) it = (container).begin();it!=(container).end();++it)
 
-  class yfs_client {
+
+class yfs_client {
   extent_client *ec;
  public:
 
@@ -35,16 +38,21 @@
  private:
   static std::string filename(inum);
   static inum n2i(std::string);
+  static int serialize(const std::map<std::string, inum> &, std::string &);
+  static int deserialize(const std::string &, std::map<std::string, inum> &);
+ 
  public:
 
   yfs_client(std::string, std::string);
 
   bool isfile(inum);
   bool isdir(inum);
-  inum ilookup(inum di, std::string name);
+  // inum ilookup(inum, std::string);
 
   int getfile(inum, fileinfo &);
   int getdir(inum, dirinfo &);
+  
+  int getdirent(inum, std::string, dirent &);  
 };
 
 #endif 

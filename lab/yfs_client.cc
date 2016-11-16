@@ -13,7 +13,6 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
-
 }
 
 yfs_client::inum
@@ -92,22 +91,95 @@ yfs_client::getdir(inum inum, dirinfo &din)
 }
 
 int
-yfs_client::getdirent(inum inum, dirent &e)
+yfs_client::getdirent(inum dir_ino, std::string file_name, dirent &e)
 {
   int r = OK;
 
-
-  printf("getdirent %016llx\n", inum);
+  printf("getdirent %016llx\n", dir_ino);
   std::string buf;
-  if (ec->get(inum, buf) != extent_protocol::OK) {
+  if (ec->get(dir_ino, buf) != extent_protocol::OK) {
+    r = NOENT;
+    goto release;
+  }
+
+  std::map<inum, std::string> dirmap;
+  if (deserialize(buf, &dirmap) != OK){
     r = IOERR;
     goto release;
   }
-  e.inum = inum;
-  e.name = buf;
+
+  if (dirmap.find(file_name) == dirmap.end()){
+    r = NOENT;
+    goto release;
+  }
+  e.name = file_name;
+  e.inum = dirmap[file_name];
 
  release:
   return r;
 }
 
+
+
+int
+yfs_client::serialize(const std::map<std::string, inum> &dirmap, std::string &buf)
+{
+  int r = OK;
+  unsigned int size = dirmap.size();
+  buf.append((char *)&size, sizeof(unsigned int));
+  foreach(dirmap, it)
+  {
+      size = it->first.size();
+      buf.append(it->first.c_str(), it->first.size());
+      buf.append((char *)&size, sizeof(unsigned int));
+      buf.append((char *)&it->second, sizeof(inum));
+  }
+  return r;
+}
+
+int
+yfs_client::deserialize(const std::string &buf, std::map<std::string, inum> &dirmap)
+{
+    int r = OK;
+    const char* cbuf = buf.c_str();
+    unsigned int size_buf = buf.size();
+    unsigned int size_fl = *(unsigned int*)cbuf;
+    unsigned int p = 0;
+    unsigned int size_name;
+    inum id;
+    std::string name;
+
+    if (size_fl * (sizeof(unsigned int) + sizeof(inum)) + 4 > size_buf)
+    {
+        r = IOERR;
+        return r;
+    }
+
+    printf("deserialize size = %d\n", size);
+    p += sizeof(unsigned int);
+    for (unsigned int i = 0; i < size_fl; i++)
+    {
+        // make file name string
+        name = std::string((cbuf + p), size_name);
+        p += size_name;
+        if (p >= size_buf + (i == size_fl - 1))
+            return IOERR;
+
+        // make size string
+        size_name = *(unsigned int*)(cbuf + p);
+        p += sizeof(unsigned int);
+        if (p >= size_buf)
+            return IOERR;
+
+        // make inum string
+        id = *(inum*)(cbuf + p);
+        p += sizeof(inum);
+        if (p >= size_buf)
+            return IOERR;
+
+        dirmap.push_back(std::make_pair<inum, std::string>(id, name));
+        printf("id = %016llx name = %s\n", id, name.c_str());
+    }
+    return r;
+}
 
