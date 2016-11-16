@@ -16,7 +16,7 @@ extent_server::extent_server() {
     clock_gettime(CLOCK_REALTIME, &now);
     
     extent_protocol::attr at;
-    at.size = buf.size();
+    at.size = 0;
     at.atime = at.mtime = at.ctime = now.tv_sec;
     _extent_attr_map[1] = at;
 }
