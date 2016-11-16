@@ -197,24 +197,18 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // e.attr appropriately.
 
   yfs_client::inum ino;
-  yfs_client::fileinfo file_info;
+  //yfs_client::fileinfo file_info;
 
   std::string file_name(name);
   std::string file_buf;
 
-  //TODO: check whether parent is a dir.
+  //parent must be a dir.
+  assert(yfs->isfile(parent));
 
   if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
   {
       e.ino = ino;
-      // assert(yfs->getbuf(ino, buf) == yfs_client::OK);
-      assert(yfs->getfile(ino, file_info) == yfs_client::OK);
-      // e.attr.st_blocks = buf;
-      e.attr.st_size = (long)file_info.size;
-      e.attr.st_atim = (long)file_info.atime;
-      e.attr.st_mtim = (long)file_info.mtime;
-      e.attr.st_ctim = (long)file_info.ctime;
-
+      assert(getattr(ino, e.attr) == yfs_client::OK);
       found = true;
   }
 
@@ -259,7 +253,6 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
   yfs_client::inum inum = ino; // req->in.h.nodeid;
   struct dirbuf b;
   yfs_client::dirent e;
-  yfs_client::dirinfo din;
 
   printf("fuseserver_readdir\n");
 
@@ -272,11 +265,12 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
 // TOTEST
    // fill in the b data structure using dirbuf_add
-  dirmap m;
+  yfs_client::dirmap m;
   if (yfs->getdirmap(inum, m) == yfs_client::OK){
-    foreach(m, dirmap::iterator it){
+    yfs_client::dirmap::iterator it;
+    foreach(m, it){
       std::string name (it->first);
-      inum i = it->second;
+      yfs_client::inum i = it->second;
       dirbuf_add(&b, name.c_str(), i);
 
     }
