@@ -21,18 +21,6 @@
 int myid;
 yfs_client *yfs;
 
-//generate a 64bit (long long) number
-unsigned long long llrand() {
-    unsigned long long r = 0;
-
-    for (int i = 0; i < 5; ++i) {
-        r = (r << 15) | (rand() & 0x7FFF);
-    }
-
-    return r & 0xFFFFFFFFFFFFFFFFULL;
-}
-
-
 int id() { 
   return myid;
 }
@@ -140,33 +128,27 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 // mode_t     : unsigned short (MacOS)
 // fuse_entry_param : struct {fuse_ino_t, stat(stat defined in system fs ), ...} (MacOS)
 {
-// TOTEST
+// TODO: TEST
   int r = yfs_client::OK;
 
-  yfs_client::dirmap m;
-
-  if (yfs->getdirmap(parent, m) == yfs_client::OK){
-    yfs_client::inum file_ino = (yfs_client::inum)llrand();
-    fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
-
-    std::string file_name(name);
-    m[name] = file_ino;
-    assert(yfs->putdirmap(parent, m) == yfs_client::OK);
-
-    std::string buf;
-    assert(yfs->putcontent(file_ino, buf) == yfs_client::OK);
-
-    assert(getattr(file_ino, e.attr) == yfs_client::OK);
-    
-    e->ino = fuse_ino;
-    e->attr_timeout = 0.0;
-    e->entry_timeout = 0.0;
-    e->generation = 0;
-
-    return r;
+  yfs_client::inum file_ino;
+  if (yfs->create(parent, name, file_ino) != yfs_client::OK){
+    r = yfs_client::IOERR;
+    goto release;
   }
 
-  r = yfs_client::IOERR;
+  if (getattr(file_ino, e->attr) != yfs_client::OK){
+    r = yfs_client::IOERR;
+    goto release;    
+  }
+  
+  fuse_ino_t fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
+  e->ino = fuse_ino;
+  e->attr_timeout = 0.0;
+  e->entry_timeout = 0.0;
+  e->generation = 0;
+
+release:
   return r;
 }
 
@@ -175,6 +157,9 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
    mode_t mode, struct fuse_file_info *fi)
 {
   struct fuse_entry_param e;
+
+  printf("\tcreate: parent(%08x), name(%s), mode(%o)\n", parent, name, mode);
+
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
   } else {
@@ -185,6 +170,9 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent, 
     const char *name, mode_t mode, dev_t rdev ) {
   struct fuse_entry_param e;
+  
+  printf("\tcreate: parent(%08x), name(%s), mode(%o)\n", parent, name, mode);
+  
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
   } else {
@@ -204,7 +192,7 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   // Look up the file named `name' in the directory referred to by
   // `parent' in YFS. If the file was found, initialize e.ino and
   // e.attr appropriately.
-
+// TODO: TEST
   yfs_client::inum ino;
   //yfs_client::fileinfo file_info;
 
@@ -272,7 +260,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   memset(&b, 0, sizeof(b));
 
-// TOTEST
+// TODO: TEST
    // fill in the b data structure using dirbuf_add
   yfs_client::dirmap m;
   if (yfs->getdirmap(inum, m) == yfs_client::OK){

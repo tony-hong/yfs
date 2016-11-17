@@ -75,7 +75,6 @@ yfs_client::getdir(inum inum, dirinfo &din)
 {
   int r = OK;
 
-
   printf("getdir %016llx\n", inum);
   extent_protocol::attr a;
   if (ec->getattr(inum, a) != extent_protocol::OK) {
@@ -184,6 +183,36 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
 }
 
 int
+yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
+  int r = OK;
+
+  dirmap m;
+  if (getdirmap(dir_ino, m) != OK){
+    r = NOENT;
+    goto release;
+  }
+
+  std::string file_name(name);
+  file_ino = (inum)llrand();
+
+  m[name] = file_ino;
+  if (putdirmap(dir_ino, m) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+  std::string buf;
+  if(putcontent(file_ino, buf) != OK){
+    r = IOERR;
+    goto release;
+  }
+
+release:
+  return r;
+}
+
+
+int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)
 {
   int r = OK;
@@ -245,3 +274,14 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
     return r;
 }
 
+//generate a 64bit (long long) number
+unsigned long long 
+yfs_client::llrand() {
+    unsigned long long r = 0;
+
+    for (int i = 0; i < 5; ++i) {
+        r = (r << 15) | (rand() & 0x7FFF);
+    }
+
+    return r & 0xFFFFFFFFFFFFFFFFULL;
+}
