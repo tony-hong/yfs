@@ -201,7 +201,7 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   std::string file_buf;
 
   //parent must be a dir.
-  assert(yfs->isfile(parent));
+  assert(yfs->isdir(parent));
 
   if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
   {
