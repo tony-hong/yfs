@@ -151,14 +151,14 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 
     std::string file_name(name);
     m[name] = file_ino;
-
-    std::string buf;
     assert(yfs->putdirmap(parent, m) == yfs_client::OK);
 
-    assert(yfs->putcontent(file_ino, "") == yfs_client::OK);
+    std::string buf;
+    assert(yfs->putcontent(file_ino, buf) == yfs_client::OK);
 
+    assert(getattr(file_ino, e.attr) == yfs_client::OK);
+    
     e->ino = fuse_ino;
-    e->attr.st_mode = mode;
     e->attr_timeout = 0.0;
     e->entry_timeout = 0.0;
     e->generation = 0;
