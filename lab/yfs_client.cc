@@ -15,6 +15,10 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   ec = new extent_client(extent_dst);
 }
 
+yfs_client::~yfs_client(){
+  delete ec;
+}
+
 yfs_client::inum
 yfs_client::n2i(std::string n)
 {

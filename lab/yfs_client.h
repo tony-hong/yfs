@@ -45,7 +45,8 @@ class yfs_client {
 
  public:
   yfs_client(std::string, std::string);
-
+  ~yfs_client();
+  
   bool isfile(inum);
   bool isdir(inum);
   // inum ilookup(inum, std::string);
