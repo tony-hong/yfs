@@ -53,7 +53,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
         } else {
             assert(_extent_attr_map.find(id) != _extent_attr_map.end());
 
-            // change to append?
+// TODO: change to append?
             status = extent_protocol::IOERR;
             // _extent_content_map[id] = buf;
             // extent_protocol::attr at = _extent_attr_map[id];
