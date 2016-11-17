@@ -149,7 +149,7 @@ yfs_client::putcontent(inum ino, const std::string &buf){
   int r = OK;
   printf("getcontent %016llx\n", ino);
 
-  if (ec->put(ino, buf, 0) != extent_protocol::OK) {
+  if (ec->put(ino, buf) != extent_protocol::OK) {
     r = FBIG;
     goto release;
   }
@@ -163,7 +163,8 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
   int r = OK;
   std::string buf;
   
-  if (getdir(dir_ino, dirinfo) != OK) {
+  dirinfo dir_info;
+  if (getdir(dir_ino, dir_info) != OK) {
     r = NOENT;
     goto release;
   }  
