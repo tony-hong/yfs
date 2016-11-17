@@ -187,13 +187,15 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
   int r = OK;
 
   dirmap m;
+  std::string buf;
+  std::string file_name(name);
+
+  file_ino = (inum)llrand();
+
   if (getdirmap(dir_ino, m) != OK){
     r = NOENT;
     goto release;
   }
-
-  std::string file_name(name);
-  file_ino = (inum)llrand();
 
   m[name] = file_ino;
   if (putdirmap(dir_ino, m) != OK){
@@ -201,7 +203,6 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
     goto release;
   }
 
-  std::string buf;
   if(putcontent(file_ino, buf) != OK){
     r = IOERR;
     goto release;
