@@ -191,9 +191,9 @@ yfs_client::serialize(const dirmap &dirmap, std::string &buf)
   foreach(dirmap, it)
   {
       size = it->first.size();
-      buf.append(it->first.c_str(), it->first.size());
-      buf.append((char *)&size, sizeof(unsigned int));
       buf.append((char *)&it->second, sizeof(inum));
+      buf.append((char *)&size, sizeof(unsigned int));
+      buf.append(it->first.c_str(), it->first.size());
   }
   return r;
 }
@@ -220,10 +220,10 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
     p += sizeof(unsigned int);
     for (unsigned int i = 0; i < size_fl; i++)
     {
-        // make file name string
-        name = std::string((cbuf + p), size_name);
-        p += size_name;
-        if (p >= size_buf + (i == size_fl - 1))
+        // make inum string
+        id = *(inum*)(cbuf + p);
+        p += sizeof(inum);
+        if (p >= size_buf)
             return IOERR;
 
         // make size string
@@ -232,10 +232,10 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
         if (p >= size_buf)
             return IOERR;
 
-        // make inum string
-        id = *(inum*)(cbuf + p);
-        p += sizeof(inum);
-        if (p >= size_buf)
+        // make file name string
+        name = std::string((cbuf + p), size_name);
+        p += size_name;
+        if (p >= size_buf + (i == size_fl - 1))
             return IOERR;
 
         dir_map[name] = id;
