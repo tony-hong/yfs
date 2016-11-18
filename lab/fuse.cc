@@ -285,8 +285,8 @@ void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
-  fileinfo fin;
 // TODO: TEST
+  yfs_client::fileinfo fin;
 
   if(yfs->getfile(ino, fin) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
