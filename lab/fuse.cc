@@ -145,7 +145,7 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
     goto release;
   }
   
-  e->ino = file_ino;
+  e->ino = (fuse_ino_t)file_ino;
   e->attr_timeout = 0.0;
   e->entry_timeout = 0.0;
   e->generation = 0;

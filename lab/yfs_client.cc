@@ -217,7 +217,7 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
     goto release;
   }
 
-  m[name] = file_ino;
+  m[file_name] = file_ino;
   if (putdirmap(dir_ino, m) != OK){
     printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
