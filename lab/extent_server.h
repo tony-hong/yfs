@@ -9,8 +9,8 @@
 
 class extent_server {
 private:
-    std::map<extent_protocol::extentid_t, std::string> _extent_content_map;
-    std::map<extent_protocol::extentid_t, extent_protocol::attr> _extent_attr_map;
+    std::map<extent_protocol::extentid_t, std::string> _content_map;
+    std::map<extent_protocol::extentid_t, extent_protocol::attr> _attr_map;
 
 public:
   extent_server();
