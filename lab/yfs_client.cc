@@ -13,6 +13,9 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
+
+  dirmap m;
+  putdirmap(1, m);
 }
 
 yfs_client::~yfs_client(){
@@ -96,6 +99,7 @@ yfs_client::getdir(inum inum, dirinfo &din)
 int
 yfs_client::getcontent(inum ino, std::string &buf){
   int r = OK;
+
   printf("getcontent %016llx\n", ino);
 
   if (ec->get(ino, buf) != extent_protocol::OK) {
@@ -112,12 +116,16 @@ yfs_client::getdirmap(inum dir_ino, dirmap &m){
   int r = OK;
   std::string buf;
   
+  printf("getdirmap %016llx\n", dir_ino);
+
   if (getcontent(dir_ino, buf) != extent_protocol::OK) {
+    printf("getdirmap: content not found!!!: %016llx\n", dir_ino);
     r = NOENT;
     goto release;
   }  
 
   if (deserialize(buf, m) != OK){
+    printf("getdirmap: deserialize failed: %016llx\n", dir_ino);
     r = IOERR;
     goto release;
   }
@@ -133,11 +141,13 @@ yfs_client::lookup(inum dir_ino, std::string file_name, inum & file_ino)
 
   dirmap dir_map;
   if (getdirmap(dir_ino, dir_map) != OK){
+    printf("\t lookup: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
     goto release;
   }
 
   if (dir_map.find(file_name) == dir_map.end()){
+    printf("\t lookup: file not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = NOENT;
     goto release;
   }
@@ -150,7 +160,7 @@ yfs_client::lookup(inum dir_ino, std::string file_name, inum & file_ino)
 int
 yfs_client::putcontent(inum ino, const std::string &buf){
   int r = OK;
-  printf("getcontent %016llx\n", ino);
+  printf("putcontent %016llx\n", ino);
 
   if (ec->put(ino, buf) != extent_protocol::OK) {
     r = FBIG;
@@ -166,18 +176,23 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
   int r = OK;
   std::string buf;
   
+  printf("putdirmap %016llx\n", dir_ino);
+
   dirinfo dir_info;
   if (getdir(dir_ino, dir_info) != OK) {
+    printf("putdirmap: dir not found: %016llx\n", dir_ino);
     r = NOENT;
     goto release;
   }  
 
   if (serialize(m, buf) != OK){
+    printf("putdirmap: serialize failed: %016llx\n", dir_ino);
     r = IOERR;
     goto release;
   }
 
   if (putcontent(dir_ino, buf) != OK){
+    printf("putdirmap: putcontent failed: %016llx\n", dir_ino);
     r = IOERR;
     goto release;
   }
@@ -194,20 +209,23 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
   std::string buf;
   std::string file_name(name);
 
-  file_ino = (inum)llrand();
+  file_ino = (inum)llrand(1);
 
   if (getdirmap(dir_ino, m) != OK){
+    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = NOENT;
     goto release;
   }
 
   m[name] = file_ino;
   if (putdirmap(dir_ino, m) != OK){
+    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
     goto release;
   }
 
   if(putcontent(file_ino, buf) != OK){
+    printf("\t create: putcontent failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
     goto release;
   }
@@ -281,12 +299,6 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
 
 //generate a 64bit (long long) number
 unsigned long long 
-yfs_client::llrand() {
-    unsigned long long r = 0;
-
-    for (int i = 0; i < 5; ++i) {
-        r = (r << 15) | (rand() & 0x7FFF);
-    }
-
-    return r & 0xFFFFFFFFFFFFFFFFULL;
+yfs_client::llrand(unsigned int isfile) {
+    return ((rand() % 0x7FFFFF) | (isfile << 31));
 }

@@ -41,7 +41,7 @@ class yfs_client {
   static inum n2i(std::string);
   static int serialize(const dirmap &, std::string &);
   static int deserialize(const std::string &, dirmap &);
-  static unsigned long long llrand();
+  static unsigned long long llrand(unsigned int );
 
  public:
   yfs_client(std::string, std::string);
