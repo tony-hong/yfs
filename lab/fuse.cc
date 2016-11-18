@@ -159,7 +159,7 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 {
   struct fuse_entry_param e;
 
-  printf("\tcreate: parent(%08x), name(%s), mode(%o)\n", parent, name, mode);
+  printf("\tcreate: parent(%08lx), name(%s), mode(%o)\n", parent, name, mode);
 
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
@@ -172,7 +172,7 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
     const char *name, mode_t mode, dev_t rdev ) {
   struct fuse_entry_param e;
   
-  printf("\tcreate: parent(%08x), name(%s), mode(%o)\n", parent, name, mode);
+  printf("\tcreate: parent(%08lx), name(%s), mode(%o)\n", parent, name, mode);
   
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
@@ -202,9 +202,11 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 
   //parent must be a dir.
   assert(yfs->isdir(parent));
-
+  
+  printf("\t lookup: parent(%08lx), name(%s)\n", parent, name);
   if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
   {
+      printf("\t found!!!");
       e.ino = ino;
       assert(getattr(ino, e.attr) == yfs_client::OK);
       found = true;
@@ -283,8 +285,8 @@ void
 fuseserver_open(fuse_req_t req, fuse_ino_t ino,
      struct fuse_file_info *fi)
 {
-// TODO:
   fileinfo fin;
+// TODO: TEST
 
   if(yfs->getfile(ino, fin) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
