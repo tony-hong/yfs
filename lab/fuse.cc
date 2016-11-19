@@ -61,6 +61,53 @@ getattr(yfs_client::inum inum, struct stat &st)
    return yfs_client::OK;
 }
 
+
+yfs_client::status
+setattr(yfs_client::inum inum, struct stat *attr, struct stat &st)
+{
+  yfs_client::status ret;
+
+  bzero(&st, sizeof(st));
+
+  st.st_ino = inum;
+  printf("getattr %016llx %d\n", inum, yfs->isfile(inum));
+  if(yfs->isfile(inum)){
+     yfs_client::fileinfo info;
+     //TODO: cast problem?
+     info.atime = attr->st_atime;
+     info.ctime = attr->st_ctime;
+     info.mtime = attr->st_mtime;
+     info.size = attr->st_size;
+     ret = yfs->setfile(inum, info);
+     if(ret != yfs_client::OK)
+       return ret;
+     st.st_mode = S_IFREG | 0666;
+     st.st_nlink = 1;
+     //TODO: do we need the following 3 lines?
+     st.st_atime = info.atime;
+     st.st_mtime = info.mtime;
+     st.st_ctime = info.ctime;
+     st.st_size = info.size;
+     printf("   getattr -> %llu\n", info.size);
+   } else {
+     yfs_client::dirinfo info;
+     info.atime = attr->st_atime;
+     info.ctime = attr->st_ctime;
+     info.mtime = attr->st_mtime;
+     ret = yfs->setdir(inum, info);
+     if(ret != yfs_client::OK)
+       return ret;
+     st.st_mode = S_IFDIR | 0777;
+     st.st_nlink = 2;
+     //TODO: do we need the following 3 lines?
+     st.st_atime = info.atime;
+     st.st_mtime = info.mtime;
+     st.st_ctime = info.ctime;
+     printf("   getattr -> %lu %lu %lu\n", info.atime, info.mtime, info.ctime);
+   }
+   return yfs_client::OK;
+}
+
 // example
 void
 fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
@@ -84,13 +131,14 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
-#if 0
     struct stat st;
+    
     // You fill this in
-    fuse_reply_attr(req, &st, 0);
-#else
-    fuse_reply_err(req, ENOSYS);
-#endif
+    if (setattr(ino,attr,st) == yfs_client::OK){
+      fuse_reply_attr(req, &st, 0);
+    } else {
+      fuse_reply_err(req, ENOENT);
+    }
   } else {
     fuse_reply_err(req, ENOSYS);
   }

@@ -52,7 +52,9 @@ class yfs_client {
   // inum ilookup(inum, std::string);
 
   int getfile(inum, fileinfo &);
+  int setfile(inum, const fileinfo &);
   int getdir(inum, dirinfo &);
+  int setdir(inum, const dirinfo &);
   
   // obtain content from content map
   int getcontent(inum, std::string &);

@@ -89,6 +89,20 @@ int extent_server::getattr(extent_protocol::extentid_t id, extent_protocol::attr
     return status;
 }
 
+
+int extent_server::setattr(extent_protocol::extentid_t id, extent_protocol::attr a, int &r){
+
+    extent_protocol::xxstatus status = extent_protocol::OK;
+
+    if (_attr_map.find(id) == _attr_map.end()) {
+        status = extent_protocol::NOENT;
+    } else {
+        _attr_map[id] = a ;
+    }
+    return status;
+
+}
+
 int extent_server::remove(extent_protocol::extentid_t id, int &)
 {
     extent_protocol::xxstatus status = extent_protocol::OK;
