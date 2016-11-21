@@ -234,6 +234,38 @@ release:
   return r;
 }
 
+int
+yfs_client::mkdir(inum dir_ino, const char *name, inum & new_dir_ino){
+  int r = OK;
+
+  dirmap m;
+  std::string buf;
+  std::string dir_name(name);
+
+  new_dir_ino = (inum)llrand(0);
+
+  if (getdirmap(dir_ino, m) != OK){
+    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
+    r = NOENT;
+    goto release;
+  }
+
+  m[dir_name] = new_dir_ino;
+  if (putdirmap(dir_ino, m) != OK){
+    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
+    r = IOERR;
+    goto release;
+  }
+
+  if(putcontent(new_dir_ino, buf) != OK){
+    printf("\t create: putcontent failed!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
+    r = IOERR;
+    goto release;
+  }
+
+release:
+  return r;
+}
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)
