@@ -202,14 +202,16 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
 }
 
 int
-yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
+yfs_client::create(inum dir_ino, const char *name, inum & file_ino, int isfile){
   int r = OK;
 
   dirmap m;
   std::string buf;
+  dirmap mp;
   std::string file_name(name);
 
-  file_ino = (inum)llrand(1);
+// TODO: test
+  file_ino = (inum)llrand(isfile);
 
   if (getdirmap(dir_ino, m) != OK){
     printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
@@ -224,48 +226,25 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino){
     goto release;
   }
 
-  if(putcontent(file_ino, buf) != OK){
-    printf("\t create: putcontent failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
-    r = IOERR;
-    goto release;
+  if (isfile == 1){
+    if(putcontent(file_ino, buf) != OK){
+      printf("\t create: init file content failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+      r = IOERR;
+      goto release;
+    }
+  } else {
+    if(putdirmap(file_ino, mp) != OK){
+      printf("\t create: init dir content failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+      r = IOERR;
+      goto release;
+    }
   }
 
 release:
   return r;
 }
 
-int
-yfs_client::mkdir(inum dir_ino, const char *name, inum & new_dir_ino){
-  int r = OK;
 
-  dirmap m;
-  std::string buf;
-  std::string dir_name(name);
-
-  new_dir_ino = (inum)llrand(0);
-
-  if (getdirmap(dir_ino, m) != OK){
-    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
-    r = NOENT;
-    goto release;
-  }
-
-  m[dir_name] = new_dir_ino;
-  if (putdirmap(dir_ino, m) != OK){
-    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
-    r = IOERR;
-    goto release;
-  }
-
-  if(putcontent(new_dir_ino, buf) != OK){
-    printf("\t create: putcontent failed!!!: parent(%08llx), name(%s)\n", dir_ino, dir_name.c_str());
-    r = IOERR;
-    goto release;
-  }
-
-release:
-  return r;
-}
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)

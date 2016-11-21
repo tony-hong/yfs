@@ -60,8 +60,7 @@ class yfs_client {
   int lookup(inum , std::string, inum &);
   int putcontent(inum, const std::string &);
   int putdirmap(inum, const dirmap &);
-  int create(inum, const char *, inum &);
-  int mkdir(inum, const char *, inum &);
+  int create(inum, const char *, inum &, int);
 
 };
 

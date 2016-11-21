@@ -178,7 +178,7 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   // fuse_ino_t fuse_ino;
 
   yfs_client::inum file_ino;
-  if (yfs->create(parent, name, file_ino) != yfs_client::OK){
+  if (yfs->create(parent, name, file_ino, 1) != yfs_client::OK){
     r = yfs_client::IOERR;
     goto release;
   }
@@ -352,14 +352,14 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
   struct fuse_entry_param e;
   yfs_client::inum dir_ino;
 
-  if (yfs->mkdir(parent, name, dir_ino) != yfs_client::OK){
+  if (yfs->create(parent, name, dir_ino, 0) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
   }
 
   // fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
 
   if (getattr(dir_ino, e->attr) != yfs_client::OK){
-    fuse_reply_err(req, ENOSYS);
+    fuse_reply_err(req, ENOENT);
   }
   
   e->ino = (fuse_ino_t)dir_ino;
@@ -375,6 +375,8 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
 
   // You fill this in
+
+
   // Success: fuse_reply_err(req, 0);
   // Not found: fuse_reply_err(req, ENOENT);
   fuse_reply_err(req, ENOSYS);
