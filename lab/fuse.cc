@@ -67,45 +67,27 @@ setattr(yfs_client::inum inum, struct stat *attr, struct stat &st)
 {
   yfs_client::status ret;
 
-  bzero(&st, sizeof(st));
+  ret = getattr(inum, st);
 
-  st.st_ino = inum;
-  printf("getattr %016llx %d\n", inum, yfs->isfile(inum));
-  if(yfs->isfile(inum)){
-     yfs_client::fileinfo info;
-     //TODO: cast problem?
-     info.atime = attr->st_atime;
-     info.ctime = attr->st_ctime;
-     info.mtime = attr->st_mtime;
-     info.size = attr->st_size;
-     ret = yfs->setfile(inum, info);
-     if(ret != yfs_client::OK)
-       return ret;
-     st.st_mode = S_IFREG | 0666;
-     st.st_nlink = 1;
-     //TODO: do we need the following 3 lines?
-     st.st_atime = info.atime;
-     st.st_mtime = info.mtime;
-     st.st_ctime = info.ctime;
-     st.st_size = info.size;
-     printf("   getattr -> %llu\n", info.size);
-   } else {
-     yfs_client::dirinfo info;
-     info.atime = attr->st_atime;
-     info.ctime = attr->st_ctime;
-     info.mtime = attr->st_mtime;
-     ret = yfs->setdir(inum, info);
-     if(ret != yfs_client::OK)
-       return ret;
-     st.st_mode = S_IFDIR | 0777;
-     st.st_nlink = 2;
-     //TODO: do we need the following 3 lines?
-     st.st_atime = info.atime;
-     st.st_mtime = info.mtime;
-     st.st_ctime = info.ctime;
-     printf("   getattr -> %lu %lu %lu\n", info.atime, info.mtime, info.ctime);
-   }
-   return yfs_client::OK;
+  if(ret != yfs_client::OK){
+    return ret;
+  }
+
+  st.st_size = attr->st_size;
+
+  yfs_client::fileinfo info;
+  //TODO: cast problem?
+  info.atime = st.st_atime;
+  info.ctime = st.st_ctime;
+  info.mtime = st.st_mtime;
+  info.size = st.st_size;
+  ret = yfs->setfile(inum, info);
+
+  if(ret != yfs_client::OK){
+    return ret;
+  }
+
+  return yfs_client::OK;
 }
 
 // example
@@ -130,8 +112,12 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
 {
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
+    //We only support changing the size attr
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
     struct stat st;
+
+    //Only file has size attr
+    assert(yfs->isfile(ino));
     
     // You fill this in
     if (setattr(ino,attr,st) == yfs_client::OK){
@@ -149,11 +135,22 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
       off_t off, struct fuse_file_info *fi)
 {
   // You fill this in
-#if 0
-  fuse_reply_buf(req, buf, size);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+
+  //We can only read conetent in a file (not in a dir)
+    assert(yfs->isfile(ino));
+    std::string b;
+
+    
+
+  if (yfs->getcontent(ino,b) == yfs_client::OK){
+
+    char* buf;
+    
+    fuse_reply_buf(req, buf, size);
+  }else{
+    fuse_reply_err(req, ENOSYS);
+  }
+
 }
 
 void

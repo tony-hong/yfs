@@ -115,19 +115,6 @@ yfs_client::getdir(inum inum, dirinfo &din)
   return r;
 }
 
-int
-yfs_client::setdir(inum inum, const dirinfo &din)
-{
-  printf("getdir %016llx\n", inum);
-  extent_protocol::attr a;
-  a.atime = din.atime;
-  a.ctime = din.ctime;
-  a.mtime = din.mtime;
-  if (ec->setattr(inum, a) != extent_protocol::OK) {
-    return IOERR;
-  }
-  return OK;
-}
 
 int
 yfs_client::getcontent(inum ino, std::string &buf){
