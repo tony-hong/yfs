@@ -373,13 +373,16 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
 void
 fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-
-  // You fill this in
-
-
+// TODO: TO TEST
   // Success: fuse_reply_err(req, 0);
   // Not found: fuse_reply_err(req, ENOENT);
-  fuse_reply_err(req, ENOSYS);
+  if (yfs->remove(parent, name) == yfs_client::NOENT){
+    fuse_reply_err(req, ENOENT);
+  } else if (yfs->remove(parent, name) == yfs_client::OK){
+    fuse_reply_err(req, 0);
+  } else {
+    fuse_reply_err(req, ENOSYS);
+  }
 }
 
 // example

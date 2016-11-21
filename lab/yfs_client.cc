@@ -244,6 +244,35 @@ release:
   return r;
 }
 
+int
+yfs_client::remove(inum dir_ino, const char *name){
+  int r = OK;
+
+  dirmap m;
+  std::string file_name(name);
+
+  if (getdirmap(dir_ino, m) != OK){
+    printf("\t remove: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+    r = NOENT;
+    goto release;
+  }
+
+  if (m.find(file_name) == m.end()){
+    printf("\t remove: name not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+    r = NOENT;
+    goto release;    
+  }
+
+  if (ec->remove(m[file_name]) != OK){
+    printf("\t remove: remove failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+    r = IOERR;
+    goto release;
+  }
+
+release:
+  return r;
+}
+
 
 
 int
