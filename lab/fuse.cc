@@ -138,15 +138,17 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   //We can only read conetent in a file (not in a dir)
     assert(yfs->isfile(ino));
-    std::string b;
 
-    
+    std::string buf;
 
-  if (yfs->getcontent(ino,b) == yfs_client::OK){
+  if (yfs->getcontent(ino,buf) == yfs_client::OK){
 
-    char* buf;
-    
-    fuse_reply_buf(req, buf, size);
+    assert(0 <= off);
+    assert(size <= buf.size());
+    assert((unsigned)off <= buf.size());
+    buf = buf.substr((long)off, (long)size);
+
+    fuse_reply_buf(req, buf.c_str(), size);
   }else{
     fuse_reply_err(req, ENOSYS);
   }
@@ -159,11 +161,33 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   struct fuse_file_info *fi)
 {
   // You fill this in
-#if 0
+  size_t bytes_written = size;
+
+  std::string strbuf;
+  if(yfs->getcontent(ino,strbuf) != yfs_client::OK){
+    fuse_reply_err(req, ENOSYS);
+    return;
+  }
+
+  std::string wbuf(buf,size);
+
+  if(off+size > strbuf.size()){
+    strbuf.resize(off+size);
+  }
+
+  strbuf.replace(strbuf.begin() + off, strbuf.begin() + off + size, wbuf.begin(), wbuf.end());
+
+   if(yfs->putcontent(ino,strbuf) != yfs_client::OK){
+    fuse_reply_err(req, ENOSYS);
+    return;
+  }
+
+  //DO NOT FORGET TO SET ATTR
+
   fuse_reply_write(req, bytes_written);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
+
+  //fuse_reply_err(req, ENOSYS);
+
 }
 
 yfs_client::status
