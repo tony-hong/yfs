@@ -144,7 +144,10 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
   if (yfs->getcontent(ino,buf) == yfs_client::OK){
 
     assert(0 <= off);
-    assert(size <= buf.size());
+    if(size <= buf.size()){
+      fuse_reply_err(req, ENOSYS);
+    }
+    
     assert((unsigned)off <= buf.size());
     buf = buf.substr((long)off, (long)size);
 
@@ -173,7 +176,12 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
 
   if(off+size > strbuf.size()){
     strbuf.resize(off+size);
+    assert(strbuf.size() == (off+size));
   }
+
+  std::cout << "wbuf is: /n/n/n  " << wbuf;
+
+
 
   strbuf.replace(strbuf.begin() + off, strbuf.begin() + off + size, wbuf.begin(), wbuf.end());
 
