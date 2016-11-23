@@ -25,6 +25,18 @@ int id() {
   return myid;
 }
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
+int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
+          off_t off, size_t maxsize)
+{
+  if ((size_t)off < bufsize)
+    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
+  else
+    return fuse_reply_buf(req, NULL, 0);
+}
+
+
 yfs_client::status
 getattr(yfs_client::inum inum, struct stat &st)
 {
@@ -139,14 +151,17 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
   if (yfs->getcontent(ino,buf) == yfs_client::OK){
 
     assert(0 <= off);
-    if(size <= buf.size()){
-      fuse_reply_err(req, ENOSYS);
-    }
+    //if((off + size) <= buf.size()){
+    //   fuse_reply_err(req, ENOSYS);
+    // }
     
     assert((unsigned)off <= buf.size());
-    buf = buf.substr((long)off, (long)size);
+    //buf = buf.substr(off, size);
 
-    fuse_reply_buf(req, buf.c_str(), size);
+    reply_buf_limited(req, buf.c_str(), buf.size(), off, size);
+
+
+    //fuse_reply_buf(req, buf.c_str(), size);
   }else{
     fuse_reply_err(req, ENOSYS);
   }
@@ -163,7 +178,7 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
 
   std::string strbuf;
   if(yfs->getcontent(ino,strbuf) != yfs_client::OK){
-    fuse_reply_err(req, ENOSYS);
+    fuse_reply_err(req, ENOENT);
     return;
   }
 
@@ -174,11 +189,15 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
     assert(strbuf.size() == (off+size));
   }
 
-  std::cout << "wbuf is: /n/n/n  " << wbuf;
+  std::cout << "wbuf is: \n\n\n  " << wbuf<<std::endl;
+  std::cout << "strbuf is: \n\n\n  " << strbuf<<std::endl;
 
 
 
   strbuf.replace(strbuf.begin() + off, strbuf.begin() + off + size, wbuf.begin(), wbuf.end());
+
+
+  std::cout << "strbuf is: \n\n\n  " << strbuf<<std::endl;
 
    if(yfs->putcontent(ino,strbuf) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
@@ -186,6 +205,13 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   }
 
   //DO NOT FORGET TO SET ATTR
+
+  //TEST
+  struct stat st;
+  getattr(ino,st);
+  assert(st.st_size == strbuf.size());
+
+  assert(size == bytes_written);
 
   fuse_reply_write(req, bytes_written);
 
@@ -308,16 +334,7 @@ void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
     fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
 }
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
-int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
-          off_t off, size_t maxsize)
-{
-  if ((size_t)off < bufsize)
-    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
-  else
-    return fuse_reply_buf(req, NULL, 0);
-}
 
 void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
