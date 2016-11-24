@@ -46,7 +46,6 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
         at.size = buf.size();
         at.atime = at.mtime = at.ctime = now.tv_sec;            
         _attr_map[id] = at;
-
         // status = extent_protocol::IOERR;
     }
     return status;
@@ -96,9 +95,26 @@ int extent_server::setattr(extent_protocol::extentid_t id, extent_protocol::attr
 
     if (_attr_map.find(id) == _attr_map.end()) {
         status = extent_protocol::NOENT;
-    } else {
-        _attr_map[id] = a ;
     }
+
+    extent_protocol::attr old_a = _attr_map[id];
+
+    assert(_content_map.find(id) != _content_map.end());
+
+    std::string buf = _content_map[id];
+    assert(buf.size() == old_a.size);
+    
+    if (a.size < old_a.size){  
+        buf = buf.substr(0, a.size);
+        _content_map[id] = buf;
+        assert(buf.size() == a.size);
+    } else if (old_a.size < a.size){
+        buf.resize(a.size);
+        _content_map[id] = buf;
+    }
+    
+    _attr_map[id] = a ;
+
     return status;
 
 }

@@ -151,12 +151,8 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
   if (yfs->getcontent(ino,buf) == yfs_client::OK){
 
     assert(0 <= off);
-    //if((off + size) <= buf.size()){
-    //   fuse_reply_err(req, ENOSYS);
-    // }
-    
     assert((unsigned)off <= buf.size());
-    //buf = buf.substr(off, size);
+
 
     reply_buf_limited(req, buf.c_str(), buf.size(), off, size);
 
@@ -176,47 +172,31 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   // You fill this in
   size_t bytes_written = size;
 
+  //First, get the strbuf from extent server
   std::string strbuf;
   if(yfs->getcontent(ino,strbuf) != yfs_client::OK){
     fuse_reply_err(req, ENOENT);
     return;
   }
 
+  //Second, get the buf we need to write into strbu
   std::string wbuf(buf,size);
-
-  if(off+size > strbuf.size()){
+  //resize strbuf if needed
+  if((off+size) > strbuf.size()){
     strbuf.resize(off+size);
     assert(strbuf.size() == (off+size));
   }
 
-  std::cout << "wbuf is: \n\n\n  " << wbuf<<std::endl;
-  std::cout << "strbuf is: \n\n\n  " << strbuf<<std::endl;
-
-
-
+  //Third, merge the wbuf with strbuf
   strbuf.replace(strbuf.begin() + off, strbuf.begin() + off + size, wbuf.begin(), wbuf.end());
 
-
-  std::cout << "strbuf is: \n\n\n  " << strbuf<<std::endl;
-
+  //Fourth, write the new strbuf back into extentserver
    if(yfs->putcontent(ino,strbuf) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
     return;
   }
 
-  //DO NOT FORGET TO SET ATTR
-
-  //TEST
-  struct stat st;
-  getattr(ino,st);
-  assert(st.st_size == strbuf.size());
-
-  assert(size == bytes_written);
-
   fuse_reply_write(req, bytes_written);
-
-  //fuse_reply_err(req, ENOSYS);
-
 }
 
 yfs_client::status
