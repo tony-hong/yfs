@@ -19,6 +19,8 @@ class extent_client {
 			      std::string &buf);
   extent_protocol::status getattr(extent_protocol::extentid_t eid, 
 				  extent_protocol::attr &a);
+  extent_protocol::status setattr(extent_protocol::extentid_t eid, 
+				  extent_protocol::attr a);
   extent_protocol::status put(extent_protocol::extentid_t eid, std::string buf);
   extent_protocol::status remove(extent_protocol::extentid_t eid);
 };

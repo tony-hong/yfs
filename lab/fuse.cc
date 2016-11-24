@@ -25,6 +25,18 @@ int id() {
   return myid;
 }
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
+int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
+          off_t off, size_t maxsize)
+{
+  if ((size_t)off < bufsize)
+    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
+  else
+    return fuse_reply_buf(req, NULL, 0);
+}
+
+
 yfs_client::status
 getattr(yfs_client::inum inum, struct stat &st)
 {
@@ -65,10 +77,9 @@ getattr(yfs_client::inum inum, struct stat &st)
 yfs_client::status
 setattr(yfs_client::inum inum, struct stat *attr, struct stat &st)
 {
-  yfs_client::status ret;
+  yfs_client::status ret = yfs_client::OK;
 
   ret = getattr(inum, st);
-
   if(ret != yfs_client::OK){
     return ret;
   }
@@ -81,13 +92,9 @@ setattr(yfs_client::inum inum, struct stat *attr, struct stat &st)
   info.ctime = st.st_ctime;
   info.mtime = st.st_mtime;
   info.size = st.st_size;
+
   ret = yfs->setfile(inum, info);
-
-  if(ret != yfs_client::OK){
-    return ret;
-  }
-
-  return yfs_client::OK;
+  return ret;
 }
 
 // example
@@ -120,7 +127,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
     assert(yfs->isfile(ino));
     
     // You fill this in
-    if (setattr(ino,attr,st) == yfs_client::OK){
+    if (setattr(ino, attr, st) == yfs_client::OK){
       fuse_reply_attr(req, &st, 0);
     } else {
       fuse_reply_err(req, ENOENT);
@@ -138,15 +145,19 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   //We can only read conetent in a file (not in a dir)
     assert(yfs->isfile(ino));
-    std::string b;
 
-    
+    std::string buf;
 
-  if (yfs->getcontent(ino,b) == yfs_client::OK){
+  if (yfs->getcontent(ino,buf) == yfs_client::OK){
 
-    char* buf;
-    
-    fuse_reply_buf(req, buf, size);
+    assert(0 <= off);
+    assert((unsigned)off <= buf.size());
+
+
+    reply_buf_limited(req, buf.c_str(), buf.size(), off, size);
+
+
+    //fuse_reply_buf(req, buf.c_str(), size);
   }else{
     fuse_reply_err(req, ENOSYS);
   }
@@ -159,11 +170,33 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   struct fuse_file_info *fi)
 {
   // You fill this in
-#if 0
+  size_t bytes_written = size;
+
+  //First, get the strbuf from extent server
+  std::string strbuf;
+  if(yfs->getcontent(ino,strbuf) != yfs_client::OK){
+    fuse_reply_err(req, ENOENT);
+    return;
+  }
+
+  //Second, get the buf we need to write into strbu
+  std::string wbuf(buf,size);
+  //resize strbuf if needed
+  if((off+size) > strbuf.size()){
+    strbuf.resize(off+size);
+    assert(strbuf.size() == (off+size));
+  }
+
+  //Third, merge the wbuf with strbuf
+  strbuf.replace(strbuf.begin() + off, strbuf.begin() + off + size, wbuf.begin(), wbuf.end());
+
+  //Fourth, write the new strbuf back into extentserver
+   if(yfs->putcontent(ino,strbuf) != yfs_client::OK){
+    fuse_reply_err(req, ENOSYS);
+    return;
+  }
+
   fuse_reply_write(req, bytes_written);
-#else
-  fuse_reply_err(req, ENOSYS);
-#endif
 }
 
 yfs_client::status
@@ -281,16 +314,7 @@ void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
     fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
 }
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
-int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
-          off_t off, size_t maxsize)
-{
-  if ((size_t)off < bufsize)
-    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
-  else
-    return fuse_reply_buf(req, NULL, 0);
-}
 
 void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,

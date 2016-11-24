@@ -22,6 +22,7 @@ public:
 
   // The getattr RPC retrieves an extent's attributes.
   int getattr(extent_protocol::extentid_t id, extent_protocol::attr &);
+  int setattr(extent_protocol::extentid_t id, extent_protocol::attr, int &);
 
   int remove(extent_protocol::extentid_t id, int &);
 };
