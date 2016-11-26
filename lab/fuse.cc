@@ -382,14 +382,14 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
 
   // fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
 
-  if (getattr(dir_ino, e->attr) != yfs_client::OK){
+  if (getattr(dir_ino, e.attr) != yfs_client::OK){
     fuse_reply_err(req, ENOENT);
   }
   
-  e->ino = (fuse_ino_t)dir_ino;
-  e->attr_timeout = 0.0;
-  e->entry_timeout = 0.0;
-  e->generation = 0;
+  e.ino = (fuse_ino_t)dir_ino;
+  e.attr_timeout = 0.0;
+  e.entry_timeout = 0.0;
+  e.generation = 0;
 
   fuse_reply_entry(req, &e);
 }

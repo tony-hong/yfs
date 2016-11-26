@@ -62,7 +62,7 @@ class yfs_client {
   int putcontent(inum, const std::string &);
   int putdirmap(inum, const dirmap &);
   int create(inum, const char *, inum &, int);
-
+    int remove(inum, const char *);
 
 
 };
