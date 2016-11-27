@@ -289,6 +289,13 @@ yfs_client::remove(inum dir_ino, const char *name){
     goto release;
   }
 
+  m.erase(file_name);
+  if (putdirmap(dir_ino, m) != OK){
+    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+    r = IOERR;
+    goto release;
+  }  
+
 release:
   return r;
 }
