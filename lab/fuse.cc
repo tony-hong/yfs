@@ -374,6 +374,8 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
 // TODO: TEST
 
   struct fuse_entry_param e;
+  struct stat st;
+  
   yfs_client::inum dir_ino;
 
   if (yfs->create(parent, name, dir_ino, 0) != yfs_client::OK){
@@ -382,10 +384,11 @@ fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
 
   // fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
 
-  if (getattr(dir_ino, e.attr) != yfs_client::OK){
+  if (getattr(dir_ino, st) != yfs_client::OK){
     fuse_reply_err(req, ENOENT);
   }
   
+  e.attr = st;
   e.ino = (fuse_ino_t)dir_ino;
   e.attr_timeout = 0.0;
   e.entry_timeout = 0.0;

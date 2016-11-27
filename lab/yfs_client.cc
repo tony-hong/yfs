@@ -222,7 +222,7 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
 }
 
 int
-yfs_client::create(inum dir_ino, const char *name, inum & file_ino, int isfile){
+yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
   int r = OK;
 
   dirmap m;
@@ -233,31 +233,31 @@ yfs_client::create(inum dir_ino, const char *name, inum & file_ino, int isfile){
 // TODO: test
   file_ino = (inum)llrand(isfile);
 
-  if (getdirmap(dir_ino, m) != OK){
-    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+  if (getdirmap(parent, m) != OK){
+    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
     r = NOENT;
     goto release;
   }
 
   m[file_name] = file_ino;
-  if (putdirmap(dir_ino, m) != OK){
-    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+  if (putdirmap(parent, m) != OK){
+    printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
     r = IOERR;
     goto release;
   }
 
-  if (isfile == 1){
-    if(putcontent(file_ino, buf) != OK){
-      printf("\t create: init file content failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
+  if (isfile == 0){
+    if (serialize(mp, buf) != OK){
+      printf("putdirmap: serialize failed: %016llx\n", parent);
       r = IOERR;
       goto release;
     }
-  } else {
-    if(putdirmap(file_ino, mp) != OK){
-      printf("\t create: init dir content failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
-      r = IOERR;
-      goto release;
-    }
+  }
+
+  if (putcontent(file_ino, buf) != OK){
+    printf("\t create: init file content failed!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
+    r = IOERR;
+    goto release;
   }
 
 release:
