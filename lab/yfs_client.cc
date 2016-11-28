@@ -283,7 +283,8 @@ yfs_client::remove(inum dir_ino, const char *name){
     goto release;    
   }
 
-  if (ec->remove(m[file_name]) != OK){
+  inum ino = m[file_name];
+  if (remove_recur(ino) != OK){
     printf("\t remove: remove failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
     goto release;
@@ -301,6 +302,37 @@ release:
 }
 
 
+int
+yfs_client::remove_recur(inum ino){
+  int r = OK;
+
+  if(isdir(ino)){
+    dirmap m;
+    if (getdirmap(ino, m) != OK){
+      printf("\t remove: map not found!!!: parent(%08llx)\n", ino);
+      r = NOENT;
+      goto release;
+    }
+    
+    foreach(m, it){
+      if (remove_recur(it->second) != OK){
+        printf("\t remove: remove failed!!!: parent(%08llx)\n", ino);
+        r = IOERR;
+        goto release;
+      }
+      m.erase(it);
+    }
+    m.clear();
+  }
+
+  if (ec->remove(ino) != OK){
+    printf("\t remove: remove failed!!!: parent(%08llx)\n", ino);
+    r = IOERR;
+    goto release;
+  } 
+release:
+  return r;  
+}
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)
