@@ -82,6 +82,7 @@ yfs_client::setfile(inum inum, const fileinfo &fin)
 {
 
   printf("setfile %016llx\n", inum);
+  assert(isfile(inum));
   extent_protocol::attr a;
   // TODO: may occur cast problem
   a.atime = fin.atime;
@@ -312,6 +313,11 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
     r = IOERR;
     goto release;
   }
+
+  //TEST
+  assert(getdir(parent, rdin) == OK);
+  assert(rdin.ctime == a.ctime);
+  assert(rdin.mtime == a.mtime);
 
 
 
