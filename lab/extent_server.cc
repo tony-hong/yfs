@@ -11,7 +11,13 @@
 
 extent_server::extent_server() {
     _content_map[1];
-    _attr_map[1];
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+
+    _attr_map[1].atime = now.tv_sec;
+    _attr_map[1].ctime = now.tv_sec;
+    _attr_map[1].mtime = now.tv_sec;
+
     assert(_content_map.size() == 1);
     assert(_attr_map.size() == 1);
 }
@@ -39,12 +45,15 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &)
         clock_gettime(CLOCK_REALTIME, &now);
         
         extent_protocol::attr at;
-        if (_attr_map.count(id) != 0)
-        {
-            at = _attr_map[id];
-        }
+        // if (_attr_map.count(id) != 0)
+        // {
+        //     at = _attr_map[id];
+        // }
+
         at.size = buf.size();
-        at.atime = at.mtime = at.ctime = now.tv_sec;            
+        at.atime = now.tv_sec;
+        at.mtime = now.tv_sec; 
+        at.ctime = now.tv_sec;            
         _attr_map[id] = at;
         // status = extent_protocol::IOERR;
     }
@@ -113,8 +122,15 @@ int extent_server::setattr(extent_protocol::extentid_t id, extent_protocol::attr
         _content_map[id] = buf;
     }
     
-    _attr_map[id] = a ;
+    // time setting should be reconsider
+    // DO NOT USE TIME FROM FUSE !!!
+    struct timespec now;
+    clock_gettime(CLOCK_REALTIME, &now);
+    a.mtime = now.tv_sec;
+    a.ctime = now.tv_sec;
 
+    _attr_map[id] = a;
+    
     return status;
 
 }
