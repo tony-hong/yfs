@@ -269,6 +269,7 @@ yfs_client::remove(inum dir_ino, const char *name){
   int r = OK;
 
   dirmap m;
+  inum ino;
   std::string file_name(name);
 
   if (getdirmap(dir_ino, m) != OK){
@@ -283,7 +284,7 @@ yfs_client::remove(inum dir_ino, const char *name){
     goto release;    
   }
 
-  inum ino = m[file_name];
+  ino = m[file_name];
   if (remove_recur(ino) != OK){
     printf("\t remove: remove failed!!!: parent(%08llx), name(%s)\n", dir_ino, file_name.c_str());
     r = IOERR;
