@@ -117,6 +117,26 @@ yfs_client::getdir(inum inum, dirinfo &din)
 
 
 int
+yfs_client::setdir(inum inum, const dirinfo &din)
+{
+
+  printf("setdir %016llx\n", inum);
+  extent_protocol::attr a;
+  // TODO: may occur cast problem
+  a.atime = din.atime;
+  a.ctime = din.ctime;
+  a.mtime = din.mtime;
+
+  if (ec->setattr(inum, a) != extent_protocol::OK) {
+    return IOERR;
+  }
+
+  return OK;
+}
+
+
+
+int
 yfs_client::getcontent(inum ino, std::string &buf){
   int r = OK;
 
@@ -239,7 +259,15 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
     goto release;
   }
 
+  //check duplicate
+  if (m.find(file_name) != m.end()){
+    printf("\t create: name duplicate: parent(%08llx), name(%s)\n", parent, file_name.c_str());
+    r = NOENT;
+    goto release;    
+  }
+
   m[file_name] = file_ino;
+
   if (putdirmap(parent, m) != OK){
     printf("\t create: putdirmap failed!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
     r = IOERR;
@@ -248,7 +276,7 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
 
   if (isfile == 0){
     if (serialize(mp, buf) != OK){
-      printf("putdirmap: serialize failed: %016llx\n", parent);
+      printf("create: serialize failed: %016llx\n", parent);
       r = IOERR;
       goto release;
     }
@@ -259,6 +287,33 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
     r = IOERR;
     goto release;
   }
+
+  extent_protocol::attr a;
+  if (ec->getattr(file_ino, a) != extent_protocol::OK) {
+    r = IOERR;
+    goto release;
+  }
+
+  dirinfo rdin;
+
+  if (getdir(parent, rdin) != OK) {
+    printf("getdir: dir not found: %016llx\n", parent);
+    r = NOENT;
+    goto release;
+  } 
+
+  dirinfo wdin;
+  wdin.atime = rdin.atime;
+  wdin.ctime = a.ctime;
+  wdin.mtime = a.mtime;
+
+  if (setdir(parent, wdin) != OK){
+    printf("\t setdir: failed!!!: parent(%08llx)", parent);
+    r = IOERR;
+    goto release;
+  }
+
+
 
 release:
   return r;

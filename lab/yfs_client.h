@@ -54,6 +54,7 @@ class yfs_client {
   int getfile(inum, fileinfo &);
   int setfile(inum, const fileinfo &);
   int getdir(inum, dirinfo &);
+  int setdir(inum, const dirinfo &);
   
   // obtain content from content map
   int getcontent(inum, std::string &);
