@@ -75,7 +75,7 @@ getattr(yfs_client::inum inum, struct stat &st)
 
 
 yfs_client::status
-setattr(yfs_client::inum inum, struct stat *attr, struct stat &st)
+setfile(yfs_client::inum inum, struct stat *attr, struct stat &st)
 {
   yfs_client::status ret = yfs_client::OK;
 
@@ -127,7 +127,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
     assert(yfs->isfile(ino));
     
     // You fill this in
-    if (setattr(ino, attr, st) == yfs_client::OK){
+    if (setfile(ino, attr, st) == yfs_client::OK){
       fuse_reply_attr(req, &st, 0);
     } else {
       fuse_reply_err(req, ENOENT);
