@@ -210,6 +210,8 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
   int r = yfs_client::OK;
   // fuse_ino_t fuse_ino;
 
+  struct stat st;
+
   yfs_client::inum file_ino;
   if (yfs->create(parent, name, file_ino, 1) != yfs_client::OK){
     r = yfs_client::IOERR;
@@ -218,11 +220,14 @@ fuseserver_createhelper(fuse_ino_t parent, const char *name,
 
   // fuse_ino = (fuse_ino_t)(file_ino & 0xFFFFFFFFUL);
 
-  if (getattr(file_ino, e->attr) != yfs_client::OK){
+
+
+  if (getattr(file_ino, st) != yfs_client::OK){
     r = yfs_client::IOERR;
     goto release;
   }
-  
+
+  e->attr = st;
   e->ino = (fuse_ino_t)file_ino;
   e->attr_timeout = 0.0;
   e->entry_timeout = 0.0;
