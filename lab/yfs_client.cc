@@ -243,11 +243,11 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
   }
 
   //check duplicate
-  if (m.find(file_name) != m.end()){
-    printf("\t create: name duplicate: parent(%08llx), name(%s)\n", parent, file_name.c_str());
-    r = NOENT;
-    goto release;    
-  }
+  // if (m.find(file_name) != m.end()){
+  //   printf("\t create: name duplicate: parent(%08llx), name(%s)\n", parent, file_name.c_str());
+  //   r = NOENT;
+  //   goto release;    
+  // }
 
   m[file_name] = file_ino;
 
