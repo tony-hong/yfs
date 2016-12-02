@@ -292,35 +292,35 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
 
   extent_protocol::attr a;
   if (ec->getattr(file_ino, a) != extent_protocol::OK) {
+    printf("create: file not found: %016llx\n", file_ino);
     r = IOERR;
     goto release;
   }
 
-  dirinfo rdin;
-
-  if (getdir(parent, rdin) != OK) {
-    printf("getdir: dir not found: %016llx\n", parent);
+  extent_protocol::attr a_par_old;
+  if (ec->getattr(parent, a_par_old) != extent_protocol::OK) {
+    printf("create: dir not found: %016llx\n", parent);
     r = NOENT;
     goto release;
-  } 
+  }
 
-  dirinfo wdin;
-  wdin.atime = rdin.atime;
-  wdin.ctime = a.ctime;
-  wdin.mtime = a.mtime;
+  extent_protocol::attr a_par;
+  a_par.size = a_par_old.size;
+  a_par.atime = a_par_old.atime;
+  a_par.ctime = a.ctime;
+  a_par.mtime = a.mtime;
 
-  if (setdir(parent, wdin) != OK){
-    printf("\t setdir: failed!!!: parent(%08llx)", parent);
+  if (ec->setattr(parent, a_par) != extent_protocol::OK) {
+    printf("\t create: failed!!!: parent(%08llx)", parent);
     r = IOERR;
     goto release;
   }
 
   //TEST
-  assert(getdir(parent, rdin) == OK);
-  assert(rdin.ctime == a.ctime);
-  assert(rdin.mtime == a.mtime);
-
-
+  dirinfo din;
+  assert(getdir(parent, din) == OK);
+  assert(din.ctime == a.ctime);
+  assert(din.mtime == a.mtime);
 
 release:
   return r;
