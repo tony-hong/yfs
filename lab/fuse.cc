@@ -102,6 +102,8 @@ void
 fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
           struct fuse_file_info *fi)
 {
+    yfs->yfs_lock(ino);
+
     struct stat st;
     yfs_client::inum inum = ino; // req->in.h.nodeid;
     yfs_client::status ret;
@@ -109,14 +111,20 @@ fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
     ret = getattr(inum, st);
     if(ret != yfs_client::OK){
       fuse_reply_err(req, ENOENT);
+      yfs->yfs_unlock(ino);
       return;
     }
     fuse_reply_attr(req, &st, 0);
+    yfs->yfs_unlock(ino);
+    return;
 }
 
 void
 fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set, struct fuse_file_info *fi)
 {
+
+  yfs->yfs_lock(ino);
+
   printf("fuseserver_setattr 0x%x\n", to_set);
   if (FUSE_SET_ATTR_SIZE & to_set) {
     //We only support changing the size attr
@@ -129,11 +137,17 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
     // You fill this in
     if (setfilesize(ino, attr, st) == yfs_client::OK){
       fuse_reply_attr(req, &st, 0);
+      yfs->yfs_unlock(ino);
+      return;
     } else {
       fuse_reply_err(req, ENOENT);
+      yfs->yfs_unlock(ino);
+      return;
     }
   } else {
     fuse_reply_err(req, ENOSYS);
+    yfs->yfs_unlock(ino);
+    return;
   }
 }
 
@@ -369,6 +383,7 @@ fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
 
   if(!yfs->isdir(inum)){
     fuse_reply_err(req, ENOTDIR);
+    yfs->yfs_unlock(ino);
     return;
   }
 
@@ -404,6 +419,7 @@ fuseserver_open(fuse_req_t req, fuse_ino_t ino,
 
   if(yfs->getfile(ino, fin) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
+    yfs->yfs_unlock(ino);
     return;
   }
   
