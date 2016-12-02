@@ -121,6 +121,7 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
   if (FUSE_SET_ATTR_SIZE & to_set) {
     //We only support changing the size attr
     printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
+
     struct stat st;
 
     //Only file has size attr
@@ -353,8 +354,6 @@ void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
     fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
 }
 
-
-
 void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
           off_t off, struct fuse_file_info *fi)
@@ -416,6 +415,7 @@ void
 fuseserver_mkdir(fuse_req_t req, fuse_ino_t parent, const char *name,
      mode_t mode)
 {
+
 // TODO: TEST
 
   yfs->yfs_lock(parent);
