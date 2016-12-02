@@ -13,6 +13,7 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
+  lc = new lock_client(lock_dst);
 
   dirmap m;
   putdirmap(1, m);
@@ -366,6 +367,7 @@ release:
 
 int
 yfs_client::remove_recur(inum ino){
+  yfs_lock(ino);
   int r = OK;
 
   if(isdir(ino)){
@@ -393,8 +395,24 @@ yfs_client::remove_recur(inum ino){
     goto release;
   } 
 release:
+  yfs_unlock(ino);
   return r;  
 }
+
+int
+yfs_client::yfs_lock(inum id){
+  lc->acquire(id);
+  return OK;
+}
+
+int
+yfs_client::yfs_unlock(inum id){
+  lc->release(id);
+  return OK;
+}
+
+
+
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)

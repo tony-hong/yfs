@@ -6,12 +6,16 @@
 #include "extent_client.h"
 #include <map>
 
+#include "lock_protocol.h"
+#include "lock_client.h"
+
 #define foreach(container,it) \
     for(typeof((container).begin()) it = (container).begin();it!=(container).end();++it)
 
 
 class yfs_client {
   extent_client *ec;
+  lock_client *lc;
  public:
 
   // unique identifier, 64-bit identifier
@@ -65,6 +69,10 @@ class yfs_client {
   int create(inum, const char *, inum &, int);
   int remove(inum, const char *);
   int remove_recur(inum);
+
+  //lock and unlock
+  int yfs_lock(inum);
+  int yfs_unlock(inum);
 
 
 };
