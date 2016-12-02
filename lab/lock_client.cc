@@ -30,20 +30,28 @@ lock_client::stat(lock_protocol::lockid_t lid)
 lock_protocol::status
 lock_client::acquire(lock_protocol::lockid_t lid)
 {
+<<<<<<< HEAD
+  return lock_protocol::RPCERR;
+=======
   // the last argument of RPC call is a reference to an arbitary type, which is always there so that a RPC handler can use it to return results.
   // for simplicity, we just use a integer r as the last argument
   int r;
   int ret = cl->call(lock_protocol::acquire, cl->id(), lid, r);
   assert(ret == lock_protocol::OK);
   return r;
+>>>>>>> lab4
 }
 
 lock_protocol::status
 lock_client::release(lock_protocol::lockid_t lid)
 {
+<<<<<<< HEAD
+  return lock_protocol::RPCERR;
+=======
   int r;
   int ret = cl->call(lock_protocol::release, cl->id(), lid, r);
   assert(ret == lock_protocol::OK);
   return r;
+>>>>>>> lab4
 }
 
