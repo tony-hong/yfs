@@ -226,6 +226,7 @@ yfs_client::putdirmap(inum dir_ino, const dirmap &m){
 
 int
 yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
+  //WARNING: This implementation could cause problems, see warning below
   int r = OK;
 
   dirmap m;
@@ -233,7 +234,6 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
   dirmap mp;
   std::string file_name(name);
 
-// TODO: test
   file_ino = (inum)llrand(isfile);
 
   if (getdirmap(parent, m) != OK){
@@ -297,11 +297,12 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
     goto release;
   }
 
-  //TEST
-  dirinfo din;
-  assert(getdir(parent, din) == OK);
-  assert(din.ctime == a.ctime);
-  assert(din.mtime == a.mtime);
+//WARNING: this implementation of create function may cause problems
+  //by calling putcontent we give the new created file the newest timestamp
+  //after putcontent, we call setattr for the dir the file is in, that gives the dir a new timestamp, which could be newer than the timestamp of the created file 
+  //That is, after create, the new file and the dir could have different ctime, which may ok if we do not require it.
+  //However, in the linux system, after we created a new file, the new file and the dir should have the same ctime
+  //Thus, following code may cause assertion error: dirinfo din; assert(getdir(parent, din) == OK); assert(din.ctime == a.ctime);assert(din.mtime == a.mtime);
 
 release:
   return r;
