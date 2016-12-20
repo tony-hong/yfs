@@ -76,13 +76,50 @@ class lock_client_cache : public lock_client {
   std::string hostname;
   std::string id;
 
+  //cached lock structure
+  enum cached_lock_state{NONE, FREE, LOCKED, ACQUIRING, RELEASING};
+  struct cached_lock
+  {
+    cached_lock_state lock_state;
+    bool revoke_flag; 
+    pthread_mutex_t cached_lock_mutex;
+    pthread_cond_t ac_cv;
+    pthread_cond_t revoke_cv;
+
+    cached_lock(){
+      lock_state = NONE;
+      revoke_flag = false; //if server calls revoke() RPC, set revoke_flag = true
+      assert(pthread_mutex_init(&cached_lock_mutex, NULL) == 0);
+      assert(pthread_cond_init(&ac_cv, NULL) == 0);
+      assert(pthread_cond_init(&revoke_cv, NULL) == 0);  
+    }
+  };
+
+  //maps and lists
+  std::map<lock_protocol::lockid_t, cached_lock> c_lock_map; //cached lock map
+  std::list<lock_protocol::lockid_t> revoke_list;  //list that saved revoke request from server
+
+  //mutexes
+  pthread_mutex_t c_lock_map_mutex;
+  pthread_mutex_t revoke_list_mutex;
+
+  //condition variables
+  pthread_cond_t releaser_cv; //only the releaser thread should wait for this cv
+
+
  public:
   static int last_port;
   lock_client_cache(std::string xdst, class lock_release_user *l = 0);
   virtual ~lock_client_cache() {};
+  
+  //local function
   lock_protocol::status acquire(lock_protocol::lockid_t);
-  virtual lock_protocol::status release(lock_protocol::lockid_t);
+  lock_protocol::status release(lock_protocol::lockid_t);
   void releaser();
+
+  //RPC function which will called by the LOCK_SERVER_CACHE
+  rlock_protocol::status revoke(lock_protocol::lockid_t, int &);
+  rlock_protocol::status retry(lock_protocol::lockid_t, int &);
 };
 #endif
 
