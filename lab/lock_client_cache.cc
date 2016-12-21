@@ -84,6 +84,8 @@ realeaser_start:
         
         if(lock_protocol::OK == ret){
           c_lock.lock_state = NONE;
+          assert(true == c_lock.revoke_flag);
+          c_lock.revoke_flag = false;
           pthread_cond_signal(&c_lock.ac_cv);
           pthread_mutex_unlock(&c_lock.cached_lock_mutex);
           goto realeaser_start;
@@ -176,7 +178,8 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
     c_lock.lock_state = FREE;  // the lock is not revoked yet, other threads can still try to get the cached lock
     pthread_cond_signal(&c_lock.ac_cv);
   }else{
-    c_lock.lock_state = RELEASING; 
+    c_lock.lock_state = RELEASING;
+    //c_lock.revoke_flag = false;
     pthread_cond_signal(&releaser_cv); // only the releaser thread waits for this condition variable
   }
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
