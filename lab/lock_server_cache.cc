@@ -81,6 +81,7 @@ lock_server_cache::revoker()
       rpcc* cl = get_rpcc(l_info.client_id);
       assert(cl != NULL);
 
+      printf("send revoke to client_id = %s for lockid =%016llx \n", l_info.client_id.c_str() ,l_info.lid );
       //send revoke RPC, do not hold mutex while calling RPC
       pthread_mutex_unlock(&revoke_list_mutex);
       assert(rlock_protocol::OK == cl->call(rlock_protocol::revoke, l_info.lid, r));
@@ -140,6 +141,8 @@ lock_protocol::status
 lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
   pthread_mutex_lock(&lock_obj_map_mutex);
 
+  printf("client id: %s acquires lock lid: %016llx\n", id.c_str(), lid);
+
   //if never seen this lock, we create one and add it to the map
   if(lock_obj_map.find(lid) == lock_obj_map.end()){ 
     lock_obj_map[lid] = lock_obj();
@@ -149,16 +152,32 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
 
   // if the lock is FREE
   if(FREE == l_obj.lock_state){
+    printf("acquire: id = %s  lid = %016llx, lock is free\n", id.c_str(), lid);
     l_obj.lock_state = LOCKED;
     l_obj.owner_clientid = id;
+
+    //if there are also other clients waiting for the locks
+    if(l_obj.waiting_clientids.size() > 0){
+      l_obj.lock_state = REVOKING;
+
+      //use revoker notify the current owner to give lock back
+      pthread_mutex_lock(&revoke_list_mutex);
+      printf("lock is free but we need to revoke lid = %016llx from owner = %s because others also wait for this lock\n",  lid, l_obj.owner_clientid.c_str());
+      revoke_list.push_back(lock_info(l_obj.owner_clientid, lid));
+      pthread_cond_signal(&revoker_condition);
+      pthread_mutex_unlock(&revoke_list_mutex);
+
+    }
+
   pthread_mutex_unlock(&lock_obj_map_mutex);
   return lock_protocol::OK;
-
   }
 
   // if the lock is LOCKED or REVOKING (REVOKING implies that the lock is still locked)
   if(LOCKED == l_obj.lock_state || REVOKING == l_obj.lock_state){
     assert(!l_obj.owner_clientid.empty());
+
+    printf("acquire: id = %s lid = %016llx, lock is LOCKED OR REVOKING\n", id.c_str(), lid);
 
     //in both cases the client should wait for the lock, push it into the list
     l_obj.waiting_clientids.push_back(id);
@@ -170,6 +189,7 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
 
       //use revoker notify the current owner to give lock back
       pthread_mutex_lock(&revoke_list_mutex);
+      printf("need to revoke lid = %016llx from owner = %s\n",  lid, l_obj.owner_clientid.c_str());
       revoke_list.push_back(lock_info(l_obj.owner_clientid, lid));
       pthread_cond_signal(&revoker_condition);
       pthread_mutex_unlock(&revoke_list_mutex);
@@ -180,6 +200,7 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
     return lock_protocol::RETRY;
   }
 
+  assert(false);
   pthread_mutex_unlock(&lock_obj_map_mutex);
   return lock_protocol::IOERR;
 }
@@ -193,7 +214,9 @@ lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, int &r){
   assert(lock_obj_map.find(lid) != lock_obj_map.end());
 
   lock_obj &l_obj = lock_obj_map[lid];
-  assert(LOCKED == l_obj.lock_state);
+  assert(LOCKED == l_obj.lock_state || REVOKING == l_obj.lock_state);
+
+  printf(" owner = %s releases the lock_lid = %016llx \n", l_obj.owner_clientid.c_str(), lid);
 
   //unlock and empty the owner
   l_obj.lock_state = FREE;

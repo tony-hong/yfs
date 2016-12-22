@@ -73,11 +73,20 @@ realeaser_start:
 
       //operations on c_lock
       pthread_mutex_lock(&c_lock.cached_lock_mutex);
+      //assert(ACQUIRING != c_lock.lock_state);
+      printf("id = %s now tries to release lock lid = %016llx from server\n", id.c_str(), lid);  
 
-      if(RELEASING == c_lock.lock_state){
+      if(RELEASING == c_lock.lock_state || FREE == c_lock.lock_state){
         //c_lock.lock_state = RELEASING;
         //do NOT hold mutex across RPC, thus we release the revoke_list_mutex
         //We actually can also release the c_lock, but it may not necessary since if the state is RELEASING, no other threads should touch this lock
+        
+        printf("id = %s can release the lock lid = %016llx because the status is RELEASING or FREE\n", id.c_str(), lid);  
+        if(FREE == c_lock.lock_state){
+          c_lock.lock_state = RELEASING;
+          c_lock.revoke_flag = true;
+        }
+        
         pthread_mutex_unlock(&revoke_list_mutex);
 
         ret = cl->call(lock_protocol::release, id, lid, r);
@@ -93,7 +102,8 @@ realeaser_start:
           printf("ERROR from releaser in lock_client_cache\n");
           return;
         }   
-      }else if(LOCKED == c_lock.lock_state){
+      }else if(LOCKED == c_lock.lock_state || NONE == c_lock.lock_state || ACQUIRING == c_lock.lock_state){
+        printf("id = %s cannot release the lock lid = %016llx because the status is NONE OR LOCKED\n", id.c_str(), lid);  
         c_lock.revoke_flag = true;
         revoke_list.push_back(lid);
         skip++;
@@ -190,7 +200,8 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
 
 rlock_protocol::status
 lock_client_cache::revoke(lock_protocol::lockid_t lid, int &){
-  pthread_mutex_lock(&revoke_list_mutex);  
+  pthread_mutex_lock(&revoke_list_mutex);
+  printf("id = %s gets revoke request for lid = %016llx from server\n", id.c_str(), lid);  
   revoke_list.push_back(lid);
   pthread_cond_signal(&releaser_cv);
   pthread_mutex_unlock(&revoke_list_mutex); 
