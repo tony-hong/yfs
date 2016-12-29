@@ -901,6 +901,24 @@ unmarshall::rawbytes(std::string &ss, unsigned int n)
 	}
 }
 
+marshall &
+operator<<(marshall &m, unsigned long x)
+{
+	if(sizeof(unsigned long) == sizeof(unsigned int))
+		return m << (unsigned int) x;
+	if(sizeof(unsigned long) == sizeof(unsigned long long))
+		return m << (unsigned long long) x;
+}
+
+unmarshall &
+operator>>(unmarshall &u, unsigned long &x)
+{
+	if(sizeof(unsigned long) == sizeof(unsigned int))
+		return u >> (unsigned int &) x;
+	if(sizeof(unsigned long) == sizeof(unsigned long long))
+		return u >> (unsigned long long &) x;
+}
+
 bool operator<(const sockaddr_in &a, const sockaddr_in &b) {
 	return ((a.sin_addr.s_addr < b.sin_addr.s_addr) ||
 			((a.sin_addr.s_addr == b.sin_addr.s_addr) &&

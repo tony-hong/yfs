@@ -368,6 +368,17 @@ void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
     fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
 }
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
+int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
+          off_t off, size_t maxsize)
+{
+  if ((size_t)off < bufsize)
+    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
+  else
+    return fuse_reply_buf(req, NULL, 0);
+}
+
 void
 fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size,
           off_t off, struct fuse_file_info *fi)
