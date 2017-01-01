@@ -27,6 +27,22 @@ int id() {
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
+struct dirbuf {
+    char *p;
+    size_t size;
+};
+
+void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
+{
+    struct stat stbuf;
+    size_t oldsize = b->size;
+    b->size += fuse_dirent_size(strlen(name));
+    b->p = (char *) realloc(b->p, b->size);
+    memset(&stbuf, 0, sizeof(stbuf));
+    stbuf.st_ino = ino;
+    fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
+}
+
 int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
           off_t off, size_t maxsize)
 {
@@ -35,7 +51,6 @@ int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
   else
     return fuse_reply_buf(req, NULL, 0);
 }
-
 
 yfs_client::status
 getattr(yfs_client::inum inum, struct stat &st)
@@ -349,34 +364,6 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     yfs->yfs_unlock(parent);
     return;
   }
-}
-
-
-struct dirbuf {
-    char *p;
-    size_t size;
-};
-
-void dirbuf_add(struct dirbuf *b, const char *name, fuse_ino_t ino)
-{
-    struct stat stbuf;
-    size_t oldsize = b->size;
-    b->size += fuse_dirent_size(strlen(name));
-    b->p = (char *) realloc(b->p, b->size);
-    memset(&stbuf, 0, sizeof(stbuf));
-    stbuf.st_ino = ino;
-    fuse_add_dirent(b->p + oldsize, name, &stbuf, b->size);
-}
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-
-int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
-          off_t off, size_t maxsize)
-{
-  if ((size_t)off < bufsize)
-    return fuse_reply_buf(req, buf + off, min(bufsize - off, maxsize));
-  else
-    return fuse_reply_buf(req, NULL, 0);
 }
 
 void
