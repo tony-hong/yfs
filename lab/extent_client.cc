@@ -27,7 +27,10 @@ extent_protocol::status
 extent_client::get(extent_protocol::extentid_t eid, std::string &buf)
 {
   extent_protocol::status ret = extent_protocol::OK;
-  if(_extent_cache_map.count(eid) > 0){
+  std::map<extent_protocol::extentid_t, std::string>::iterator it;
+  it = _extent_cache_map.find(eid);
+
+  if (it != _extent_cache_map.end()){
     buf = _extent_cache_map[eid];
   } else {
     ret = cl->call(extent_protocol::get, eid, buf);
@@ -66,8 +69,10 @@ extent_protocol::status
 extent_client::getattr(extent_protocol::extentid_t eid, extent_protocol::attr &attr)
 {
   extent_protocol::status ret = extent_protocol::OK;
+  std::map<extent_protocol::extentid_t, extent_protocol::attr>::iterator it;
+  it = _attr_cache_map.find(eid);
 
-  if(_attr_cache_map.count(eid) > 0){
+  if (it != _attr_cache_map.end()){
     attr = _attr_cache_map[eid];
   } else {
     ret = cl->call(extent_protocol::getattr, eid, attr);
