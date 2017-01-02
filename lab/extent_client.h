@@ -13,8 +13,8 @@ class extent_client {
   rpcc *cl;
 
   //extent map
-  std::map<extent_protocol::extentid_t, std::string> extent_cache_map;
-  std::map<extent_protocol::extentid_t, extent_protocol::attr> attr_cache_map;
+  std::map<extent_protocol::extentid_t, std::string> _extent_cache_map;
+  std::map<extent_protocol::extentid_t, extent_protocol::attr> _attr_cache_map;
 
  public:
   extent_client(std::string dst);
@@ -33,4 +33,3 @@ class extent_client {
 };
 
 #endif 
-
