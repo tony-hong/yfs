@@ -31,7 +31,7 @@ extent_client::get(extent_protocol::extentid_t eid, std::string &buf)
   it = _extent_cache_map.find(eid);
 
   if (it != _extent_cache_map.end()){
-    buf = _extent_cache_map[eid];
+    buf = it->second;
   } else {
     ret = cl->call(extent_protocol::get, eid, buf);
     _extent_cache_map[eid] = buf;
@@ -73,7 +73,7 @@ extent_client::getattr(extent_protocol::extentid_t eid, extent_protocol::attr &a
   it = _attr_cache_map.find(eid);
 
   if (it != _attr_cache_map.end()){
-    attr = _attr_cache_map[eid];
+    attr = it->second;
   } else {
     ret = cl->call(extent_protocol::getattr, eid, attr);
     _attr_cache_map[eid] = attr;
@@ -107,7 +107,7 @@ extent_client::setattr(extent_protocol::extentid_t eid, extent_protocol::attr a)
   }
 
   _attr_cache_map[eid].size = a.size;
-  TIME_NULL = time(NULL);
+  time_t TIME_NULL = time(NULL);
   _attr_cache_map[eid].atime = TIME_NULL;
   _attr_cache_map[eid].mtime = TIME_NULL;
   _attr_cache_map[eid].ctime = TIME_NULL;
