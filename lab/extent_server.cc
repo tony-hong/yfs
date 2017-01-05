@@ -112,19 +112,23 @@ int extent_server::setattr(extent_protocol::extentid_t id, extent_protocol::attr
     // DO NOT USE TIME FROM FUSE !!!
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
-    a.atime = now.tv_sec;
-    a.ctime = now.tv_sec;
+    
 
     if (a.size < old_a.size){  
         buf = buf.substr(0, a.size);
         _content_map[id] = buf;
         assert(buf.size() == a.size);
-        a.mtime = now.tv_sec;
+        //a.mtime = now.tv_sec;
     } else if (old_a.size < a.size){
         buf.resize(a.size);
         _content_map[id] = buf;
-        a.mtime = now.tv_sec;
-    } 
+        //a.mtime = now.tv_sec;
+    }
+
+    a.atime = now.tv_sec;
+    a.ctime = now.tv_sec;
+    //in lab6, even if a.size == old_a.size, we need to update the mtime, since the server may get put RPC first, update the size already, and then get the setattr RPC
+    a.mtime = now.tv_sec; 
     
     _attr_map[id] = a;
     

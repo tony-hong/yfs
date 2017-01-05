@@ -89,6 +89,11 @@ realeaser_start:
         
         pthread_mutex_unlock(&revoke_list_mutex);
 
+        //we need the following if statement for lab6. That is, before we release the lock, we need to write the new extent to the extent server
+        if(lu != NULL){
+          lu->dorelease(lid);
+        }
+
         ret = cl->call(lock_protocol::release, id, lid, r);
         
         if(lock_protocol::OK == ret){

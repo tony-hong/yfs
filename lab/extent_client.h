@@ -12,8 +12,20 @@ class extent_client {
  private:
   rpcc *cl;
 
+  struct extent_cache{
+     std::string data;
+     bool dirty;
+     bool deleted;
+
+    extent_cache(){
+      dirty = false;
+      deleted = false;
+    }
+  };
+
+
   //extent map
-  std::map<extent_protocol::extentid_t, std::string> _extent_cache_map;
+  std::map<extent_protocol::extentid_t, extent_cache> _extent_cache_map;
   std::map<extent_protocol::extentid_t, extent_protocol::attr> _attr_cache_map;
 
  public:
@@ -30,6 +42,7 @@ class extent_client {
   extent_protocol::status setattr(extent_protocol::extentid_t eid, 
 				  extent_protocol::attr a);
   
+  extent_protocol::status flush(extent_protocol::extentid_t eid);
 };
 
 #endif 
