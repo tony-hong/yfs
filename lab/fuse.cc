@@ -348,10 +348,14 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
   printf("\t lookup: parent(%08lx), name(%s)\n", parent, name);
   if (yfs->lookup(parent, file_name, ino) == yfs_client::OK)
   {
-      printf("\t found!!!");
+      printf("\tfuse.cc parent(%08lx), name(%s),ino(%08llx) found\n", parent, name, ino);
       e.ino = ino;
+
+      yfs->yfs_lock(ino);
       assert(getattr(ino, e.attr) == yfs_client::OK);
+
       found = true;
+      yfs->yfs_unlock(ino);
   }
 
   if (found){

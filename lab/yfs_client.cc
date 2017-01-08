@@ -18,8 +18,12 @@ yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
   lu = new yfs_lock_release_user(ec);
   //lc = new lock_client(lock_dst);
   lc = new lock_client_cache(lock_dst, lu);
-  dirmap m;
-  putdirmap(1, m);
+
+  // yfs_lock(1);
+  // dirmap m;
+  // m[""] = 1;
+  // putdirmap(1, m);
+  // yfs_unlock(1);
 }
 
 yfs_client::~yfs_client(){
@@ -239,8 +243,12 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
 
   file_ino = (inum)llrand(isfile);
 
+  yfs_lock(file_ino);
+
+  printf("create  name = %s with id = %08llx in parent = %016llx,\n", file_name.c_str(), file_ino, parent);
+
   if (getdirmap(parent, m) != OK){
-    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
+    printf("\t create: map not found!!!: parent(%016llx), name(%s)\n", parent, file_name.c_str());
     r = NOENT;
     goto release;
   }
@@ -308,6 +316,7 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
   //Thus, following code may cause assertion error: dirinfo din; assert(getdir(parent, din) == OK); assert(din.ctime == a.ctime);assert(din.mtime == a.mtime);
 
 release:
+  yfs_unlock(file_ino);
   return r;
 }
 
@@ -398,20 +407,42 @@ yfs_client::yfs_unlock(inum id){
 
 
 
+void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+    std::stringstream ss;
+    ss.str(s);
+    std::string item;
+    while (std::getline(ss, item, delim)) {
+        elems.push_back(item);
+    }
+}
+
 
 int
 yfs_client::serialize(const dirmap &dirmap, std::string &buf)
 {
   int r = OK;
-  unsigned int size = dirmap.size();
-  buf.append((char *)&size, sizeof(unsigned int));
-  foreach(dirmap, it)
-  {
-      size = it->first.size();
-      buf.append((char *)&it->second, sizeof(inum));
-      buf.append((char *)&size, sizeof(unsigned int));
-      buf.append(it->first.c_str(), it->first.size());
-  }
+  
+  std::map<std::string, inum>::const_iterator  it;
+
+
+    for(it = dirmap.begin(); it != dirmap.end(); it++) {
+        std::string f = it->first;
+
+        std::stringstream ss;
+        ss << it->second;
+        std::string s = ss.str();
+
+        std::string one_element = (f.append(";")).append(s);
+        buf.append(one_element);
+        buf.append(",");
+        //printf( "the name is %s  and the value is  %s\n", it->first.c_str(), it->second.c_str() );
+    }
+
+
+    buf = buf.substr(0, buf.size()-1);
+
+
+
   return r;
 }
 
@@ -419,45 +450,23 @@ int
 yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
 {
     int r = OK;
-    const char* cbuf = buf.c_str();
-    unsigned int size_buf = buf.size();
-    unsigned int size_fl = *(unsigned int*)cbuf;
-    unsigned int p = 0;
-    unsigned int size_name = 0;
-    inum id;
-    std::string name;
+    
+    printf("deserialize %s\n", buf.c_str());
 
-    if (size_fl * (sizeof(unsigned int) + sizeof(inum)) + 4 > size_buf)
-    {
-        r = IOERR;
-        return r;
+    char delim = ',';
+    std::vector<std::string> elems;
+    split(buf, delim, elems);
+
+    for(std::vector<std::string>::size_type i = 0; i != elems.size(); i++) {
+        std::string el_str = elems[i];
+        //printf("one element %s \n", elems[i].c_str());
+        char delim2 = ';';
+        std::vector<std::string> pair_vector;
+        split(el_str, delim2, pair_vector);
+        assert(pair_vector.size() == 2);
+        dir_map[pair_vector[0]] =  std::strtoll(pair_vector[1].c_str(),NULL,10);
     }
 
-    printf("deserialize size = %d\n", size_buf);
-    p += sizeof(unsigned int);
-    for (unsigned int i = 0; i < size_fl; i++)
-    {
-        // make inum string
-        id = *(inum*)(cbuf + p);
-        p += sizeof(inum);
-        if (p >= size_buf)
-            return IOERR;
-
-        // make size string
-        size_name = *(unsigned int*)(cbuf + p);
-        p += sizeof(unsigned int);
-        if (p >= size_buf)
-            return IOERR;
-
-        // make file name string
-        name = std::string((cbuf + p), size_name);
-        p += size_name;
-        if (p >= size_buf + (i == size_fl - 1))
-            return IOERR;
-
-        dir_map[name] = id;
-        printf("id = %016llx name = %s\n", id, name.c_str());
-    }
     return r;
 }
 
