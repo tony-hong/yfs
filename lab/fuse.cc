@@ -126,10 +126,9 @@ fuseserver_getattr(fuse_req_t req, fuse_ino_t ino,
     ret = getattr(inum, st);
     if(ret != yfs_client::OK){
       fuse_reply_err(req, ENOENT);
-      yfs->yfs_unlock(ino);
-      return;
+    } else {
+      fuse_reply_attr(req, &st, 0);
     }
-    fuse_reply_attr(req, &st, 0);
     yfs->yfs_unlock(ino);
     return;
 }
@@ -153,18 +152,14 @@ fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set
     // You fill this in
     if (setfilesize(ino, attr, st) == yfs_client::OK){
       fuse_reply_attr(req, &st, 0);
-      yfs->yfs_unlock(ino);
-      return;
     } else {
       fuse_reply_err(req, ENOENT);
-      yfs->yfs_unlock(ino);
-      return;
     }
   } else {
     fuse_reply_err(req, ENOSYS);
-    yfs->yfs_unlock(ino);
-    return;
   }
+  yfs->yfs_unlock(ino);
+  return;
 }
 
 void
@@ -189,15 +184,12 @@ fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 
     reply_buf_limited(req, buf.c_str(), buf.size(), off, size);
 
-    yfs->yfs_unlock(ino);
-
-
     //fuse_reply_buf(req, buf.c_str(), size);
   }else{
     fuse_reply_err(req, ENOSYS);
-    yfs->yfs_unlock(ino);
   }
-
+  yfs->yfs_unlock(ino);
+  return;
 }
 
 void
@@ -232,12 +224,12 @@ fuseserver_write(fuse_req_t req, fuse_ino_t ino,
   //Fourth, write the new strbuf back into extentserver
    if(yfs->putcontent(ino,strbuf) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
-    yfs->yfs_unlock(ino);
-    return;
+  } else {
+    fuse_reply_write(req, bytes_written);
   }
 
-  fuse_reply_write(req, bytes_written);
   yfs->yfs_unlock(ino);
+  return;
 }
 
 yfs_client::status
@@ -294,13 +286,12 @@ fuseserver_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_create(req, &e, fi);
-    yfs->yfs_unlock(parent);
-    return;
   } else {
     fuse_reply_err(req, ENOENT);
-    yfs->yfs_unlock(parent);
-    return;
   }
+  yfs->yfs_unlock(parent);
+  return;
+
 }
 
 void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent, 
@@ -313,13 +304,12 @@ void fuseserver_mknod( fuse_req_t req, fuse_ino_t parent,
   
   if( fuseserver_createhelper( parent, name, mode, &e ) == yfs_client::OK ) {
     fuse_reply_entry(req, &e);
-    yfs->yfs_unlock(parent);
-    return;
   } else {
     fuse_reply_err(req, ENOENT);
-    yfs->yfs_unlock(parent);
-    return;
   }
+  yfs->yfs_unlock(parent);
+  return;
+
 }
 
 void
@@ -360,14 +350,12 @@ fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 
   if (found){
     fuse_reply_entry(req, &e);
-    yfs->yfs_unlock(parent);
-    return;
   }
   else{
     fuse_reply_err(req, ENOENT);
-    yfs->yfs_unlock(parent);
-    return;
   }
+  yfs->yfs_unlock(parent);
+  return;
 }
 
 void
@@ -420,11 +408,10 @@ fuseserver_open(fuse_req_t req, fuse_ino_t ino,
 
   if(yfs->getfile(ino, fin) != yfs_client::OK){
     fuse_reply_err(req, ENOSYS);
-    yfs->yfs_unlock(ino);
-    return;
+  } else {
+    fuse_reply_open(req, fi);
   }
   
-  fuse_reply_open(req, fi);
   yfs->yfs_unlock(ino);
   return;
 }
@@ -480,17 +467,13 @@ fuseserver_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
   r = yfs->remove(parent, name);
   if (r == yfs_client::NOENT){
     fuse_reply_err(req, ENOENT);
-    yfs->yfs_unlock(parent);
-    return;
   } else if (r == yfs_client::OK){
     fuse_reply_err(req, 0);
-    yfs->yfs_unlock(parent);
-    return;
   } else {
     fuse_reply_err(req, ENOSYS);
-    yfs->yfs_unlock(parent);
-    return;
   }
+  yfs->yfs_unlock(parent);
+  return;
 }
 
 // example
