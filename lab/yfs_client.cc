@@ -15,8 +15,9 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
   ec = new extent_client(extent_dst);
+  lu = new yfs_lock_release_user(ec);
   //lc = new lock_client(lock_dst);
-  lc = new lock_client_cache(lock_dst);
+  lc = new lock_client_cache(lock_dst, lu);
 
   // yfs_lock(1);
   // dirmap m;
@@ -242,8 +243,12 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
 
   file_ino = (inum)llrand(isfile);
 
+  yfs_lock(file_ino);
+
+  printf("create  name = %s with id = %08llx in parent = %016llx,\n", file_name.c_str(), file_ino, parent);
+
   if (getdirmap(parent, m) != OK){
-    printf("\t create: map not found!!!: parent(%08llx), name(%s)\n", parent, file_name.c_str());
+    printf("\t create: map not found!!!: parent(%016llx), name(%s)\n", parent, file_name.c_str());
     r = NOENT;
     goto release;
   }
@@ -311,6 +316,7 @@ yfs_client::create(inum parent, const char *name, inum & file_ino, int isfile){
   //Thus, following code may cause assertion error: dirinfo din; assert(getdir(parent, din) == OK); assert(din.ctime == a.ctime);assert(din.mtime == a.mtime);
 
 release:
+  yfs_unlock(file_ino);
   return r;
 }
 
@@ -445,6 +451,8 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
 {
     int r = OK;
     
+    printf("deserialize %s\n", buf.c_str());
+
     char delim = ',';
     std::vector<std::string> elems;
     split(buf, delim, elems);

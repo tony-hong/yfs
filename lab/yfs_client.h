@@ -8,14 +8,27 @@
 
 #include "lock_protocol.h"
 #include "lock_client.h"
+#include "lock_client_cache.h"
 
 #define foreach(container,it) \
     for(typeof((container).begin()) it = (container).begin();it!=(container).end();++it)
 
 
+class yfs_lock_release_user : public lock_release_user{
+private:
+    extent_client *ec;
+public:
+    yfs_lock_release_user(extent_client *ec_) : ec(ec_) {};
+    void dorelease(lock_protocol::lockid_t lid)
+    {
+        ec->flush(lid);
+    }
+};
+
 class yfs_client {
   extent_client *ec;
   lock_client *lc;
+  lock_release_user *lu;
  public:
 
   // unique identifier, 64-bit identifier
