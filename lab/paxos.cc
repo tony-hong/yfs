@@ -324,7 +324,7 @@ acceptor::preparereq(std::string src, paxos_protocol::preparearg a,
     return paxos_protocol::OK;
   }
 
-  assert(a.instance == instance_h);
+  //assert(a.instance == instance_h);
 
   if(a.n > n_h){ //accept
     n_h = a.n;

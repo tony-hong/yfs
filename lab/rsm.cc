@@ -226,9 +226,13 @@ rsm::join(std::string m) {
 void 
 rsm::commit_change() 
 {
+  printf("[debug] rsm::commit_change\n");
   pthread_mutex_lock(&rsm_mutex);
   // Lab 7:
   // - If I am not part of the new view, start recovery
+  
+  set_primary();  // update primary
+  pthread_cond_signal(&recovery_cond);
   pthread_mutex_unlock(&rsm_mutex);
 }
 
@@ -304,8 +308,24 @@ rsm::joinreq(std::string m, viewstamp last, rsm_protocol::joinres &r)
     printf("joinreq: busy\n");
     ret = rsm_client_protocol::BUSY;
   } else {
-    // Lab 7: invoke config to create a new view that contains m
+    bool ok;
+
+    assert(pthread_mutex_unlock(&rsm_mutex) == 0);
+    ok = cfg->add(m);
+    assert(pthread_mutex_lock(&rsm_mutex) == 0);
+
+    printf("[debug] rsm::joinreq node(%s) cfg->add = %d\n", m.c_str(), ok);
+    if (ok)
+    {
+      r.log = cfg->dump();
+      ret = rsm_protocol::OK;
+    }
+    else{
+       ret = rsm_test_protocol::ERR;
+    }
+
   }
+  printf("[debug] rsm::joinreq done\n");
   assert (pthread_mutex_unlock(&rsm_mutex) == 0);
   return ret;
 }
