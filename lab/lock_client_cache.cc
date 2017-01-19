@@ -187,14 +187,22 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
   if(false == c_lock.revoke_flag){
     c_lock.lock_state = FREE;  // the lock is not revoked yet, other threads can still try to get the cached lock
     pthread_cond_signal(&c_lock.ac_cv);
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    return lock_protocol::OK;
   }else{
     c_lock.lock_state = RELEASING;
-    //c_lock.revoke_flag = false;
-    pthread_cond_signal(&releaser_cv); // only the releaser thread waits for this condition variable
-  }
-  pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
-  return lock_protocol::OK;
+    //lock thre revoke_list to make sure that the releaser thread is sleeping (waiting for condition)
+    //If we only send a signal to the releaser thread, it may arleady awake and ignore the signal
+    //In the worst case, the releaser ignores the single and then sleep => deadlock
+    //Note: we need to unlock c_lock.cached_lock_mutex first. Without unlocking it, we could encounter deadlock, since both the releaser and this release methode acquire both locks.
+    pthread_mutex_lock(&revoke_list_mutex);
+    pthread_cond_signal(&releaser_cv); // only the releaser thread waits for this condition variable
+    pthread_mutex_unlock(&revoke_list_mutex);
+    return lock_protocol::OK;
+  }
+  
 }
 
 
