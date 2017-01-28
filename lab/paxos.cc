@@ -98,8 +98,7 @@ proposer::run(int instance, std::vector<std::string> newnodes, std::string newv)
   bool r = false;
 
   pthread_mutex_lock(&pxs_mutex);
-  printf("start: initiate paxos for %s w. i=%d v=%s stable=%d\n",
-	 print_members(newnodes).c_str(), instance, newv.c_str(), stable);
+  printf("start: node %s initiates paxos for %s w. i=%d v=%s stable=%d\n", me.c_str(), print_members(newnodes).c_str(), instance, newv.c_str(), stable);
   if (!stable) {  // already running proposer?
     printf("proposer::run: already running\n");
     pthread_mutex_unlock(&pxs_mutex);
@@ -191,7 +190,7 @@ proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
           if (r.oldinstance)
           {
             assert(r.v_a.size() > 0); 
-            printf("[debug]proposer::prepare node(%s) oldinstance r.v_a = %s\n", nodes[i].c_str(), r.v_a.c_str());
+            printf("[debug] proposer::prepare node(%s) oldinstance r.v_a = %s\n", nodes[i].c_str(), r.v_a.c_str());
             acc->commit(instance, r.v_a);
             return false;
           }
@@ -263,7 +262,8 @@ proposer::decide(unsigned instance, std::vector<std::string> accepts,
   a.instance = instance;
   a.v =v;
 
-  int r;
+  //r is not used, only needed for rpc call
+  int r = 1;
 
   for(unsigned i = 0; i < accepts.size(); i++){
     handle h(accepts[i]);
@@ -272,7 +272,7 @@ proposer::decide(unsigned instance, std::vector<std::string> accepts,
     if(cl != NULL ){
       printf("[debug] proposer::decide node(%s) decidereq v = %s\n", accepts[i].c_str(), a.v.c_str());
       if (cl->call(paxos_protocol::decidereq, me, a, r, rpcc::to(1000)) == paxos_protocol::OK){
-        printf("[debug] proposer::decide node(%s) ret = %d\n", accepts[i].c_str(), r);
+        printf("[debug] proposer::decide node(%s) has processed my decide request and r = %d\n", accepts[i].c_str(), r);
       }else{
         printf("[error] proposer::decide node(%s) rpcc error\n", accepts[i].c_str());
       }
@@ -315,18 +315,21 @@ acceptor::preparereq(std::string src, paxos_protocol::preparearg a,
   // handle a preparereq message from proposer
 
   ScopedLock ml(&pxs_mutex);
+  printf("[debug] acceptor::preparereq node(%s) got prepare request. Request's info: instance = %d\n", me.c_str(), a.instance);
   //check instance number
   if(a.instance <= instance_h){
+    printf("[debug] acceptor::preparereq node(%s) got prepare request, reject because oldinstance\n", me.c_str());
     r.oldinstance = 1;
     r.accept = 0;
     assert(values.count(instance_h) > 0);
-    r.v_a = values[instance_h];
+    r.v_a = values[a.instance];
     return paxos_protocol::OK;
   }
 
   //assert(a.instance == instance_h);
 
   if(a.n > n_h){ //accept
+    printf("[debug] acceptor::preparereq node(%s) got prepare request, accepted\n", me.c_str());
     n_h = a.n;
     l->loghigh(n_h);
 
@@ -335,6 +338,7 @@ acceptor::preparereq(std::string src, paxos_protocol::preparearg a,
     r.n_a = n_a;
     r.v_a = v_a;
   }else{ //reject
+    printf("[debug] acceptor::preparereq node(%s) got prepare request, reject because prepare number is low\n", me.c_str());
     r.oldinstance = 0;
     r.accept = 0;
   }
@@ -349,13 +353,24 @@ acceptor::acceptreq(std::string src, paxos_protocol::acceptarg a, int &r)
   // handle an acceptreq message from proposer
 
   ScopedLock ml(&pxs_mutex);
+  printf("[debug] acceptor::acceptreq node(%s) got accept request. Request's info: instance = %d\n", me.c_str(), a.instance);
+  
+  r = 0;
+
+  if(a.instance <= instance_h){
+    printf("[debug] acceptor::acceptreq node(%s) got accept request. reject beacause old instance number", me.c_str());
+    r = 0;
+    return paxos_protocol::OK;
+  }
 
   if(a.n >= n_h){
+    printf("[debug] acceptor::acceptreq node(%s) got accept request. accepted\n", me.c_str());
     n_a = a.n;
     v_a = a.v;
     r = 1;
     l->logprop(n_a, v_a);
   }else{
+    printf("[debug] acceptor::acceptreq node(%s) got accept request. reject beacause prepare number is low", me.c_str());
     r = 0;
   }
   return paxos_protocol::OK;
@@ -368,12 +383,14 @@ acceptor::decidereq(std::string src, paxos_protocol::decidearg a, int &r)
   // handle an decide message from proposer
 
   ScopedLock ml(&pxs_mutex);
-  
+  printf("[debug] acceptor::decidereq node(%s) got accept request. Request's info: instance = %d\n", me.c_str(), a.instance);
   if(a.instance <= instance_h){//ignore the request
+    printf("[debug] acceptor::decidereq node(%s) got accept request. Ignored because old instance\n", me.c_str());
     return paxos_protocol::OK;
   }
 
   if(a.instance == instance_h + 1){ //commit
+    printf("[debug] acceptor::decidereq node(%s) got accept request. OK, commit now\n", me.c_str());
     commit_wo(a.instance, a.v);
   }else{ //a.instance > (instance_h + 1) TODO: is it even possible?
     assert(false);
