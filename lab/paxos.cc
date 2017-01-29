@@ -101,7 +101,7 @@ proposer::run(int instance, std::vector<std::string> newnodes, std::string newv)
   printf("start: node %s initiates paxos for %s w. i=%d v=%s stable=%d\n", me.c_str(), print_members(newnodes).c_str(), instance, newv.c_str(), stable);
   if (!stable) {  // already running proposer?
     printf("proposer::run: already running\n");
-    pthread_mutex_unlock(&pxs_mutex);
+    //pthread_mutex_unlock(&pxs_mutex);
     return false;
   }
   setn();
@@ -393,7 +393,8 @@ acceptor::decidereq(std::string src, paxos_protocol::decidearg a, int &r)
     printf("[debug] acceptor::decidereq node(%s) got accept request. OK, commit now\n", me.c_str());
     commit_wo(a.instance, a.v);
   }else{ //a.instance > (instance_h + 1) TODO: is it even possible?
-    assert(false);
+    printf("[debug] acceptor::decidereq node(%s) got accept request. Ignored because a.instance >= instance_h + 2\n", me.c_str());
+    return paxos_protocol::OK;
   }
 
   return paxos_protocol::OK;
