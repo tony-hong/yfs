@@ -7,9 +7,13 @@
 #include "rpc.h"
 #include "lock_server.h"
 
+#include "rsm.h"
 
 
 class lock_server_cache {
+  // TODO: new for lab8 ?
+ private:
+  class rsm *rsm;
 
  protected:
   //enum and structs

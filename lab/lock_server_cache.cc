@@ -22,7 +22,8 @@ retrythread(void *x)
   return 0;
 }
 
-lock_server_cache::lock_server_cache()
+lock_server_cache::lock_server_cache(class rsm *_rsm) 
+  : rsm (_rsm)
 {
   assert(pthread_mutex_init(&lock_obj_map_mutex, NULL) == 0);
   assert(pthread_mutex_init(&rpcc_pool_mutex, NULL) == 0);
