@@ -59,7 +59,7 @@ class lock_server_cache {
   rpcc* get_rpcc(std::string id);
 
  public:
-  lock_server_cache();
+  lock_server_cache(class rsm *_rsm);
   ~lock_server_cache();
   void revoker();
   void retryer();
