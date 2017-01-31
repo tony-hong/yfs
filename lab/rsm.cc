@@ -145,7 +145,7 @@ rsm::reg1(int proc, handler *h)
 void
 rsm::recovery()
 {
-  bool r = false;
+  bool r = true;
 
   assert(pthread_mutex_lock(&rsm_mutex)==0);
 
@@ -291,8 +291,70 @@ rsm::execute(int procno, std::string req)
 rsm_client_protocol::status
 rsm::client_invoke(int procno, std::string req, std::string &r)
 {
-  int ret = rsm_protocol::OK;
+  int ret = rsm_client_protocol::OK;
   // For lab 8
+  assert(pthread_mutex_lock(&invoke_mutex)==0);
+
+  //check whether I am the primary and whether we are in view change
+  assert(pthread_mutex_lock(&rsm_mutex)==0);
+  if(inviewchange){
+    assert(pthread_mutex_unlock(&rsm_mutex)==0);
+    assert(pthread_mutex_unlock(&invoke_mutex)==0);
+    return rsm_client_protocol::BUSY;
+  }
+
+  if(!amiprimary_wo()){
+    assert(pthread_mutex_unlock(&rsm_mutex)==0);
+    assert(pthread_mutex_unlock(&invoke_mutex)==0);
+    return  rsm_client_protocol::NOTPRIMARY;
+  }  
+  
+  //I am the primary, and we are stable. 
+  //First, set next view_num
+  viewstamp cur_vs = myvs;
+  last_myvs = myvs;
+  myvs.seqno = myvs.seqno + 1;
+
+  // rr is not used, only for rpc call
+  int rr;
+  bool all_successful = true; //true if all replicas success 
+
+  //Second, foward client's requests to all replicas expect the primary (and primary is me)
+  std::vector<std::string> cur_mems = cfg->get_curview();
+
+  for(unsigned i = 0; i < cur_mems.size(); i++){
+    std::string m = cur_mems[i];
+    if(m == primary){
+      //TODO:remove this assert later!!
+      assert(cfg->myaddr() == primary);
+      continue;
+    }
+
+    handle h(cur_mems[i]);
+    rpcc* cl = h.get_rpcc();
+
+    if(cl != NULL){
+      assert(pthread_mutex_unlock(&rsm_mutex)==0);//Do not hold rsm_mutex while RPC call
+      ret = cl->call(rsm_protocol::invoke, procno, cur_vs, req, rr, rpcc::to(1000));
+      assert(pthread_mutex_lock(&rsm_mutex)==0);
+      if(ret != rsm_protocol::OK){
+        all_successful = false;
+      }
+    }else{
+      printf("[debug] rsm::client_invoke h.get_rpcc() == NULL\n");
+    }
+
+  }
+
+  //Third, if all replicas successes, I can process the requet now
+  if(all_successful){
+    execute(procno, req);
+  } else{
+    ret = rsm_client_protocol::BUSY;
+  }
+
+  assert(pthread_mutex_unlock(&rsm_mutex)==0);
+  assert(pthread_mutex_unlock(&invoke_mutex)==0);
   return ret;
 }
 
@@ -308,6 +370,29 @@ rsm::invoke(int proc, viewstamp vs, std::string req, int &dummy)
 {
   rsm_protocol::status ret = rsm_protocol::OK;
   // For lab 8
+
+  ScopedLock ml(&rsm_mutex);
+  
+  if(inviewchange){
+    return rsm_protocol::ERR;
+  }
+
+  if(vs != myvs){ //not my expected view
+    return rsm_protocol::ERR;
+  }
+
+  if(vs != myvs){ //not my expected view
+    return rsm_protocol::ERR;
+  }
+
+  if(amiprimary_wo()){ //i am not a slave
+    return rsm_protocol::ERR;
+  }
+
+  last_myvs = myvs;
+  myvs.seqno++;
+  std::string r;
+  execute(proc, req);
   return ret;
 }
 

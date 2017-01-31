@@ -41,6 +41,9 @@ lock_client_cache::lock_client_cache(std::string xdst,
   assert(pthread_mutex_init(&revoke_list_mutex, NULL) == 0);
   assert(pthread_cond_init(&releaser_cv, NULL) == 0);
 
+  //for lab8, create rsm_client object
+  rsmc = new rsm_client(xdst);
+
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *) this);
   assert (r == 0);
@@ -94,7 +97,7 @@ realeaser_start:
           lu->dorelease(lid);
         }
 
-        ret = cl->call(lock_protocol::release, id, lid, r);
+        ret = rsmc->call(lock_protocol::release, id, lid, r);
         
         if(lock_protocol::OK == ret){
           c_lock.lock_state = NONE;
@@ -152,7 +155,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
       pthread_mutex_unlock(&c_lock.cached_lock_mutex); 
 
       // do not hold mutex while calling RPC
-      ret = cl->call(lock_protocol::acquire, id, lid, r);
+      ret = rsmc->call(lock_protocol::acquire, id, lid, r);
 
       pthread_mutex_lock(&c_lock.cached_lock_mutex);
       //assert(ACQUIRING == c_lock.lock_state); //since this thread calls RPC, all other acquire thread will not change the state

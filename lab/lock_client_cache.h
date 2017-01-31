@@ -8,6 +8,7 @@
 #include "lock_protocol.h"
 #include "rpc.h"
 #include "lock_client.h"
+#include "rsm_client.h"
 
 // Classes that inherit lock_release_user can override dorelease so that 
 // that they will be called when lock_client releases a lock.
@@ -71,6 +72,7 @@ class lock_release_user {
 
 class lock_client_cache : public lock_client {
  private:
+  rsm_client *rsmc;
   class lock_release_user *lu;
   int rlock_port;
   std::string hostname;

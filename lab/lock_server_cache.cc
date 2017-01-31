@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include "handle.h"
 
 static void *
 revokethread(void *x)
@@ -79,16 +80,17 @@ lock_server_cache::revoker()
       lock_info l_info = revoke_list.front();
       revoke_list.pop_front();
 
-      rpcc* cl = get_rpcc(l_info.client_id);
-      assert(cl != NULL);
+      if (rsm->amiprimary()) {
+        rpcc *cl = handle(l_info.client_id).get_rpcc();
+        assert(cl != NULL);
 
-      printf("send revoke to client_id = %s for lockid =%016llx \n", l_info.client_id.c_str() ,l_info.lid );
-      //send revoke RPC, do not hold mutex while calling RPC
-      pthread_mutex_unlock(&revoke_list_mutex);
-      assert(rlock_protocol::OK == cl->call(rlock_protocol::revoke, l_info.lid, r));
-
-      //get the list mutex again
-      pthread_mutex_lock(&revoke_list_mutex);
+        printf("send revoke to client_id = %s for lockid =%016llx \n", l_info.client_id.c_str() ,l_info.lid );
+        //send revoke RPC, do not hold mutex while calling RPC
+        pthread_mutex_unlock(&revoke_list_mutex);
+        assert(rlock_protocol::OK == cl->call(rlock_protocol::revoke, l_info.lid, r));
+        //get the list mutex again
+        pthread_mutex_lock(&revoke_list_mutex);
+      }
     }else{
       pthread_cond_wait(&revoker_condition, &revoke_list_mutex); 
     }
@@ -114,15 +116,17 @@ lock_server_cache::retryer()
       lock_info l_info = retry_list.front();
       retry_list.pop_front();
 
-      rpcc* cl = get_rpcc(l_info.client_id);
-      assert(cl != NULL);
+      if (rsm->amiprimary()) {
+        rpcc *cl = handle(l_info.client_id).get_rpcc();
+        assert(cl != NULL);
 
-      //send retry RPC, do not hold mutex while calling RPC
-      pthread_mutex_unlock(&retry_list_mutex);
-      assert(rlock_protocol::OK == cl->call(rlock_protocol::retry, l_info.lid, r));
+        //send retry RPC, do not hold mutex while calling RPC
+        pthread_mutex_unlock(&retry_list_mutex);
+        assert(rlock_protocol::OK == cl->call(rlock_protocol::retry, l_info.lid, r));
 
-      //get the list mutex again
-      pthread_mutex_lock(&retry_list_mutex);
+        //get the list mutex again
+        pthread_mutex_lock(&retry_list_mutex);
+      }
     }else{
       pthread_cond_wait(&retryer_condition, &retry_list_mutex); 
     }
@@ -261,5 +265,20 @@ rpcc* lock_server_cache::get_rpcc(std::string id)
         cl = rpcc_pool[id];
     pthread_mutex_unlock(&rpcc_pool_mutex);
     return cl;
+}
+
+
+std::string
+lock_server_cache::marshal_state()
+{
+  std::string a;
+  return a;
+}
+
+
+void
+lock_server_cache::unmarshal_state(std::string state)
+{
+
 }
 

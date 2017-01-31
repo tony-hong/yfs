@@ -10,7 +10,7 @@
 #include "rsm.h"
 
 
-class lock_server_cache {
+class lock_server_cache : public rsm_state_transfer{
   // TODO: new for lab8 ?
  private:
   class rsm *rsm;
@@ -67,6 +67,10 @@ class lock_server_cache {
   lock_protocol::status stat(lock_protocol::lockid_t, int &);
   lock_protocol::status acquire(std::string id, lock_protocol::lockid_t lid, int &);
   lock_protocol::status release(std::string id, lock_protocol::lockid_t lid, int &);
+
+
+  std::string marshal_state();
+  void unmarshal_state(std::string state);
   
   
 };
