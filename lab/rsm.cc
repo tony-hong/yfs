@@ -315,8 +315,8 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
   last_myvs = myvs;
   myvs.seqno = myvs.seqno + 1;
 
-  // rr is not used, only for rpc call
-  int rr;
+  // dummy is not used, only for rpc call
+  int dummy;
   bool all_successful = true; //true if all replicas success 
 
   //Second, foward client's requests to all replicas expect the primary (and primary is me)
@@ -335,7 +335,7 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
 
     if(cl != NULL){
       assert(pthread_mutex_unlock(&rsm_mutex)==0);//Do not hold rsm_mutex while RPC call
-      ret = cl->call(rsm_protocol::invoke, procno, cur_vs, req, rr, rpcc::to(1000));
+      ret = cl->call(rsm_protocol::invoke, procno, cur_vs, req, dummy, rpcc::to(1000));
       assert(pthread_mutex_lock(&rsm_mutex)==0);
       if(ret != rsm_protocol::OK){
         all_successful = false;
@@ -348,7 +348,7 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
 
   //Third, if all replicas successes, I can process the requet now
   if(all_successful){
-    execute(procno, req);
+    r = execute(procno, req); // r must be assigned by the return value of execute()
   } else{
     ret = rsm_client_protocol::BUSY;
   }
@@ -374,10 +374,6 @@ rsm::invoke(int proc, viewstamp vs, std::string req, int &dummy)
   ScopedLock ml(&rsm_mutex);
   
   if(inviewchange){
-    return rsm_protocol::ERR;
-  }
-
-  if(vs != myvs){ //not my expected view
     return rsm_protocol::ERR;
   }
 
