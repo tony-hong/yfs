@@ -143,7 +143,7 @@ lock_server_cache::stat(lock_protocol::lockid_t, int &){
 }
 
 lock_protocol::status
-lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
+lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_protocol::xid_t xid, int &r){
   pthread_mutex_lock(&lock_obj_map_mutex);
 
   printf("client id: %s acquires lock lid: %016llx\n", id.c_str(), lid);
@@ -154,6 +154,23 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
   }
   //get the lock object and check the info in it
   lock_obj &l_obj = lock_obj_map[lid];
+
+  //check the sequential number xid
+  if(l_obj.highest_xid_from_client_map.count(id) == 0){ //never know this client?
+    l_obj.highest_xid_from_client_map[id] = 0;
+  }
+
+  if(l_obj.highest_xid_from_client_map[id] == xid){ //this should be a duplicated request
+    assert(l_obj.acquire_reply_map.count(id) != 0); // I should remember the reply
+    lock_protocol::status ret = l_obj.acquire_reply_map[id];
+    pthread_mutex_unlock(&lock_obj_map_mutex);
+    return ret;
+  }
+
+  assert(xid == (l_obj.highest_xid_from_client_map[id] + 1) );
+
+  //since the request is new, we can forget the last release release_reply_map
+  l_obj.release_reply_map.erase(id);
 
   // if the lock is FREE
   if(FREE == l_obj.lock_state){
@@ -173,6 +190,10 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
       pthread_mutex_unlock(&revoke_list_mutex);
 
     }
+
+  l_obj.acquire_reply_map[id] = lock_protocol::OK; // update remember list
+  //TODO: what happens if the server crashes here, between these two updates?
+  l_obj.highest_xid_from_client_map[id] = xid; //update xid
 
   pthread_mutex_unlock(&lock_obj_map_mutex);
   return lock_protocol::OK;
@@ -200,6 +221,11 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
       pthread_mutex_unlock(&revoke_list_mutex);
     }
 
+
+    l_obj.acquire_reply_map[id] = lock_protocol::RETRY; // update remember list
+    //TODO: what happens if the server crashes here, between these two updates?
+    l_obj.highest_xid_from_client_map[id] = xid; //update xid
+    
     //unlock and return
     pthread_mutex_unlock(&lock_obj_map_mutex);
     return lock_protocol::RETRY;
@@ -214,11 +240,23 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, int &r){
 
 
 lock_protocol::status
-lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, int &r){
+lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, lock_protocol::xid_t xid, int &r){
   pthread_mutex_lock(&lock_obj_map_mutex);
   assert(lock_obj_map.find(lid) != lock_obj_map.end());
-
   lock_obj &l_obj = lock_obj_map[lid];
+
+  if(xid == l_obj.highest_xid_from_client_map[id]){
+    if(l_obj.release_reply_map.count(id) > 0 ){// this is a duplicated release request
+      assert(l_obj.release_reply_map[id] == lock_protocol::OK);
+      pthread_mutex_unlock(&lock_obj_map_mutex);
+      return lock_protocol::OK;
+    }
+  }else{
+    printf("[error] there is something wrong\n");
+    assert(false);
+  }
+
+  
   assert(LOCKED == l_obj.lock_state || REVOKING == l_obj.lock_state);
 
   printf(" owner = %s releases the lock_lid = %016llx \n", l_obj.owner_clientid.c_str(), lid);

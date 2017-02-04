@@ -43,6 +43,8 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
   //for lab8, create rsm_client object
   rsmc = new rsm_client(xdst);
+  //for lab8, add sequential number, initial value is 0
+  xid = 0;
 
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *) this);
@@ -97,7 +99,7 @@ realeaser_start:
           lu->dorelease(lid);
         }
 
-        ret = rsmc->call(lock_protocol::release, id, lid, r);
+        ret = rsmc->call(lock_protocol::release, id, lid, c_lock.xid, r);
         
         if(lock_protocol::OK == ret){
           c_lock.lock_state = NONE;
@@ -146,19 +148,24 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
   new_acquire:
     pthread_mutex_lock(&c_lock.cached_lock_mutex);
 
-    while(c_lock.lock_state != NONE && c_lock.lock_state != FREE){
+    while(   (c_lock.lock_state != NONE && c_lock.lock_state != FREE)  || (c_lock.outstanding) ){
       pthread_cond_wait(&c_lock.ac_cv, &c_lock.cached_lock_mutex);
     }
 
     if(NONE == c_lock.lock_state){
       c_lock.lock_state = ACQUIRING;
+      c_lock.xid = c_lock.xid + 1;
+      lock_protocol::xid_t nxt_xid = c_lock.xid;
+      c_lock.outstanding = true;
+      
       pthread_mutex_unlock(&c_lock.cached_lock_mutex); 
 
       // do not hold mutex while calling RPC
-      ret = rsmc->call(lock_protocol::acquire, id, lid, r);
+      ret = rsmc->call(lock_protocol::acquire, id, lid, nxt_xid, r);
 
       pthread_mutex_lock(&c_lock.cached_lock_mutex);
       //assert(ACQUIRING == c_lock.lock_state); //since this thread calls RPC, all other acquire thread will not change the state
+      c_lock.outstanding = false;
       if(lock_protocol::OK == ret){
         //Notice that the revoke_flag may be = true. But we ignore this revoke_flag this time
         //and STILL get the lock, in order to prevent a special case, that two clients acquire the same lock cucurrently and acquire rpc delays.

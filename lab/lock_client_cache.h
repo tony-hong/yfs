@@ -77,6 +77,7 @@ class lock_client_cache : public lock_client {
   int rlock_port;
   std::string hostname;
   std::string id;
+  lock_protocol::xid_t xid; //sequential number. Send it along with acquire and realease requests to lock_server, see lab5 and lab8 description for more detail
 
   //cached lock structure
   enum cached_lock_state{NONE, FREE, LOCKED, ACQUIRING, RELEASING};
@@ -87,13 +88,17 @@ class lock_client_cache : public lock_client {
     pthread_mutex_t cached_lock_mutex;
     pthread_cond_t ac_cv;
     pthread_cond_t revoke_cv;
+    lock_protocol::xid_t xid;
+    bool outstanding; // we dont want sedn additional acquires for the same lock to the server until the outstaning one has been completed
 
     cached_lock(){
       lock_state = NONE;
       revoke_flag = false; //if server calls revoke() RPC, set revoke_flag = true
       assert(pthread_mutex_init(&cached_lock_mutex, NULL) == 0);
       assert(pthread_cond_init(&ac_cv, NULL) == 0);
-      assert(pthread_cond_init(&revoke_cv, NULL) == 0);  
+      assert(pthread_cond_init(&revoke_cv, NULL) == 0);
+      xid = 0;  
+      outstanding = false;
     }
   };
 
