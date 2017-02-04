@@ -66,14 +66,26 @@ sub spawn {
 }
 
 sub randports {
-
-  my $num = shift;
-  my @p = ();
-  for( my $i = 0; $i < $num; $i++ ) {
-    push( @p, int(rand(54000))+10000 );
-  }
-  my @sp = sort { $a <=> $b } @p;
-  return @sp;
+    my $num = shift;
+    my (%a); # create a hash table for remembering values
+    my @ports = ();
+    foreach (1 .. $num) {
+        my $r;
+        my $isPortUsed;
+        my $alreadyChosen;
+        do {
+            $r = int(rand(63500))+2000;
+            $isPortUsed = qx(ss -nat | grep :$r); # there may be false positives (e.g., prefixes of port numbers will match) but it's OK
+            $alreadyChosen = exists($a{$r});
+            if ($isPortUsed) { print "Port $r BUSY: output was [$isPortUsed]\n"; }
+            if ($alreadyChosen) { print "Port $r already chosen\n"; }
+        } until (!$isPortUsed and !$alreadyChosen); # loop until the value is OK
+        push(@ports, $r);
+        $a{$r}++;                  # remember that we saw it!
+    }
+    my @sortedPorts = sort { $a <=> $b } @ports;
+    printf "Randports: selected ports @sortedPorts\n";
+    return @sortedPorts;
 }
 
 sub print_config {
