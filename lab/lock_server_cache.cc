@@ -256,14 +256,16 @@ lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, lock_pro
     assert(false);
   }
 
+  printf(" owner = %s tries to release the lock_lid = %016llx  xid = %016llx\n", l_obj.owner_clientid.c_str(), lid, xid);
   
   assert(LOCKED == l_obj.lock_state || REVOKING == l_obj.lock_state);
 
-  printf(" owner = %s releases the lock_lid = %016llx \n", l_obj.owner_clientid.c_str(), lid);
+  //printf(" owner = %s releases the lock_lid = %016llx \n", l_obj.owner_clientid.c_str(), lid);
 
   //unlock and empty the owner
   l_obj.lock_state = FREE;
   l_obj.owner_clientid = "";
+  l_obj.release_reply_map[id] = lock_protocol::OK;
 
   //if there is a client waiting for the lock, we should use retryer to send retry() to the next client in the waiting list (if there is at least one client in the waiting list)
   if(l_obj.waiting_clientids.size() > 0){
@@ -320,6 +322,8 @@ lock_server_cache::marshal_state()
   std::map<lock_protocol::lockid_t, lock_obj>::iterator iter_lock;
   std::list<std::string>::iterator iter_waiting;
 
+
+  //marshall lock_obj_map
   size = lock_obj_map.size();
   rep << size;
 
@@ -334,13 +338,49 @@ lock_server_cache::marshal_state()
     rep << lock_cache_obj.lock_state;
     rep << lock_cache_obj.owner_clientid;
 
-    // marshal the waiting list
+    //marshal maps and lists in lock_obj
+    //1. marshal the waiting list
     unsigned int wait_size = lock_cache_obj.waiting_clientids.size();
     rep << wait_size;
 
     for (iter_waiting = lock_cache_obj.waiting_clientids.begin(); iter_waiting != lock_cache_obj.waiting_clientids.end(); iter_waiting++) {
       rep << *iter_waiting;
     }
+
+    //2. marshal the highest_xid_from_client_map;
+    std::map<std::string, lock_protocol::xid_t>::iterator iter_highest_xid;
+    unsigned int xid_size = lock_cache_obj.highest_xid_from_client_map.size();
+    rep << xid_size;
+
+    for (iter_highest_xid = lock_cache_obj.highest_xid_from_client_map.begin(); 
+         iter_highest_xid != lock_cache_obj.highest_xid_from_client_map.end(); 
+         iter_highest_xid++) {
+        rep << iter_highest_xid->first;
+        rep << iter_highest_xid->second;
+    }
+
+    //3. marshal the acquire_reply_map;
+    std::map<std::string, int>::iterator iter_ac_reply_map;
+    unsigned int ac_reply_size = lock_cache_obj.acquire_reply_map.size();
+    rep << ac_reply_size;
+    for (iter_ac_reply_map = lock_cache_obj.acquire_reply_map.begin(); 
+         iter_ac_reply_map != lock_cache_obj.acquire_reply_map.end(); 
+         iter_ac_reply_map++) {
+        rep << iter_ac_reply_map->first;
+        rep << iter_ac_reply_map->second;
+    }
+
+    //4. marshal the release_reply_map;
+    std::map<std::string, int>::iterator iter_release_reply_map;
+    unsigned int release_reply_size = lock_cache_obj.release_reply_map.size();
+    rep << release_reply_size;
+    for (iter_release_reply_map = lock_cache_obj.release_reply_map.begin(); 
+         iter_release_reply_map != lock_cache_obj.release_reply_map.end(); 
+         iter_release_reply_map++) {
+        rep << iter_release_reply_map->first;
+        rep << iter_release_reply_map->second;
+    }
+
 
   }
 
@@ -358,6 +398,7 @@ lock_server_cache::unmarshal_state(std::string state)
   
   unsigned int locks_size;
   unsigned int waiting_size;
+  unsigned int xid_size;
   std::string waitinglockid; 
 
   unmarshall rep(state);
@@ -373,11 +414,42 @@ lock_server_cache::unmarshal_state(std::string state)
     lock_cache_obj->lock_state = (lock_obj_state)temp_state;
     rep >> lock_cache_obj->owner_clientid;
 
-    //unmashall waiting list
+    //1. unmashall waiting list
     rep >> waiting_size;
     for(unsigned int i = 0; i < waiting_size; i++){
       rep >> waitinglockid;
       lock_cache_obj->waiting_clientids.push_back(waitinglockid);
+    }
+
+
+    //2. unmashall highest_xid_from_client_map
+    rep >> xid_size;
+    std::string client_id;
+    lock_protocol::xid_t xid;
+    
+    for (unsigned int m = 0; m < xid_size; m++) {
+      rep >> client_id;
+      rep >> xid;
+      lock_cache_obj->highest_xid_from_client_map[client_id] = xid;
+    }
+
+    //3. unmashall acquire_reply_map
+    unsigned int ac_reply_size;
+    rep >> ac_reply_size;
+    int ret;
+    for (unsigned int n = 0; n < ac_reply_size; n++) {
+      rep >> client_id;
+      rep >> ret;
+      lock_cache_obj->acquire_reply_map[client_id] = ret;
+    }
+
+    //4. unmashall release_reply_map
+    unsigned int release_reply_size;
+    rep >> release_reply_size;
+    for (unsigned int j = 0; j < release_reply_size; j++) {
+      rep >> client_id;
+      rep >> ret;
+      lock_cache_obj->release_reply_map[client_id] = ret;
     }
 
     lock_obj_map[lock_id] = *lock_cache_obj;
