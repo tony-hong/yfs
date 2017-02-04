@@ -146,7 +146,7 @@ lock_protocol::status
 lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_protocol::xid_t xid, int &r){
   pthread_mutex_lock(&lock_obj_map_mutex);
 
-  printf("client id: %s acquires lock lid: %016llx\n", id.c_str(), lid);
+  printf("client id: %s acquires lock lid = %016llx, xid = %016llx \n", id.c_str(), lid, xid);
 
   //if never seen this lock, we create one and add it to the map
   if(lock_obj_map.find(lid) == lock_obj_map.end()){ 
@@ -159,6 +159,8 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
   if(l_obj.highest_xid_from_client_map.count(id) == 0){ //never know this client?
     l_obj.highest_xid_from_client_map[id] = 0;
   }
+
+  printf("I have seen acquire request with xid = %016llx from client id: %s with lid = %016llx. \n", l_obj.highest_xid_from_client_map[id], id.c_str(), lid);
 
   if(l_obj.highest_xid_from_client_map[id] == xid){ //this should be a duplicated request
     assert(l_obj.acquire_reply_map.count(id) != 0); // I should remember the reply
@@ -191,10 +193,13 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
 
     }
 
+
+
   l_obj.acquire_reply_map[id] = lock_protocol::OK; // update remember list
+  printf("Now I remember that the reply request with xid = %016llx from client id: %s with lid = %016llx is OK \n", xid, id.c_str(), lid);
   //TODO: what happens if the server crashes here, between these two updates?
   l_obj.highest_xid_from_client_map[id] = xid; //update xid
-
+  printf("My new xid ever seen is xid = %016llx from client id: %s with lid = %016llx \n", xid, id.c_str(), lid);
   pthread_mutex_unlock(&lock_obj_map_mutex);
   return lock_protocol::OK;
   }
@@ -223,8 +228,10 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
 
 
     l_obj.acquire_reply_map[id] = lock_protocol::RETRY; // update remember list
+    printf("Now I remember that the reply request with xid = %016llx from client id: %s with lid = %016llx is RETRY \n", xid, id.c_str(), lid);
     //TODO: what happens if the server crashes here, between these two updates?
     l_obj.highest_xid_from_client_map[id] = xid; //update xid
+    printf("My new xid ever seen is xid = %016llx from client id: %s with lid = %016llx \n", xid, id.c_str(), lid);
     
     //unlock and return
     pthread_mutex_unlock(&lock_obj_map_mutex);
