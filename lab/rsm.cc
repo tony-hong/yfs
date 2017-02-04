@@ -160,7 +160,21 @@ rsm::recovery()
       }
     }
 
-    if (r) inviewchange = false;
+
+    if (primary == cfg->myaddr()) {
+      printf("recovery: I am primary, sync with backups");
+      r = sync_with_backups();
+    } else {
+      printf("recovery: I am a replica, sync with primary");
+      r = sync_with_primary();
+    }
+    printf("recovery: sync done\n");
+
+    if (r){
+      inviewchange = false;
+      myvs = cfg->vid();
+      myvs.seqno = 1;
+    } 
     printf("recovery: go to sleep %d %d\n", insync, inviewchange);
     pthread_cond_wait(&recovery_cond, &rsm_mutex);
   }
@@ -171,6 +185,13 @@ bool
 rsm::sync_with_backups()
 {
   // For lab 8
+  nbackup = cfg->get_curview().size();
+  nbackup = nbackup - 1; //do not count primary
+
+  while(nbackup > 0){
+    pthread_cond_wait(&recovery_cond, &rsm_mutex);
+  }
+  
   return true;
 }
 
@@ -178,7 +199,25 @@ rsm::sync_with_backups()
 bool
 rsm::sync_with_primary()
 {
-  // For lab 8
+  // For lab 8  
+  //insync = true;
+  bool transfer_succ = false;
+  bool transfer_done_succ = false;
+
+  transfer_succ = statetransfer(primary);
+
+  if(transfer_succ){
+    printf("[debug] rsm::sync_with_primary: I am a replica, sync with primary successed\n");
+    transfer_done_succ = statetransferdone(primary);
+    if(transfer_done_succ){
+      printf("[debug] rsm::sync_with_primary: I am a replica, statetransferdone successes\n");
+    }else{
+      return false;
+    }
+  }else{
+    return false;
+  }
+
   return true;
 }
 
@@ -218,7 +257,28 @@ rsm::statetransfer(std::string m)
 bool
 rsm::statetransferdone(std::string m) {
   // For lab 8
+  // notify the primary that statetransfer is done
+  pthread_mutex_unlock(&rsm_mutex); //don't hold the mutex while calling RPC
+  handle h(m);
+  rpcc *cl = h.get_rpcc();
+  int r;
+  int ret = 0;
+  if (cl){
+    printf("[debug] Now notify the primary that statetransfer is done\n");
+    ret = cl->call(rsm_protocol::transferdonereq, cfg->myaddr(), r);
+    if(ret == rsm_protocol::OK){
+      printf("[debug] primary is noftified that statetransfer is done\n");
+    }else{
+      printf("[error] rsm::statetransferdone, rpc does not return OK\n");
+      return false;
+    }
+  }else{
+    printf("[error] rsm::statetransferdone, rpc error\n");
+    return false;
+  }
+  pthread_mutex_lock(&rsm_mutex);
   return true;
+
 }
 
 
@@ -259,7 +319,7 @@ rsm::commit_change()
   pthread_mutex_lock(&rsm_mutex);
   // Lab 7:
   // - If I am not part of the new view, start recovery
-  
+  inviewchange = true;
   set_primary();  // update primary
   pthread_cond_signal(&recovery_cond);
   pthread_mutex_unlock(&rsm_mutex);
@@ -417,8 +477,15 @@ rsm::transferdonereq(std::string m, int &r)
 {
   int ret = rsm_client_protocol::OK;
   assert (pthread_mutex_lock(&rsm_mutex) == 0);
-  // For lab 8
+  
+  nbackup = nbackup - 1;
+
+  if (nbackup == 0){
+    pthread_cond_broadcast(&recovery_cond);
+  }
+
   assert (pthread_mutex_unlock(&rsm_mutex) == 0);
+
   return ret;
 }
 

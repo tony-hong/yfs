@@ -271,14 +271,80 @@ rpcc* lock_server_cache::get_rpcc(std::string id)
 std::string
 lock_server_cache::marshal_state()
 {
-  std::string a;
-  return a;
+
+  pthread_mutex_lock(&lock_obj_map_mutex);
+
+  marshall rep;
+  lock_obj lock_cache_obj; 
+  unsigned int size; 
+
+  //iterators
+  std::map<lock_protocol::lockid_t, lock_obj>::iterator iter_lock;
+  std::list<std::string>::iterator iter_waiting;
+
+  size = lock_obj_map.size();
+  rep << size;
+
+  for (iter_lock = lock_obj_map.begin(); iter_lock != lock_obj_map.end(); iter_lock++) {
+    
+    lock_protocol::lockid_t lock_id = iter_lock->first;
+    lock_cache_obj = lock_obj_map[lock_id];
+
+    //marshal lock_id 
+    rep << lock_id;
+    //marshal lock_obj
+    rep << lock_cache_obj.lock_state;
+    rep << lock_cache_obj.owner_clientid;
+
+    // marshal the waiting list
+    unsigned int wait_size = lock_cache_obj.waiting_clientids.size();
+    rep << wait_size;
+
+    for (iter_waiting = lock_cache_obj.waiting_clientids.begin(); iter_waiting != lock_cache_obj.waiting_clientids.end(); iter_waiting++) {
+      rep << *iter_waiting;
+    }
+
+  }
+
+  pthread_mutex_unlock(&lock_obj_map_mutex);
+  return rep.str();
 }
 
 
 void
 lock_server_cache::unmarshal_state(std::string state)
 {
+  pthread_mutex_lock(&lock_obj_map_mutex);
 
+
+  
+  unsigned int locks_size;
+  unsigned int waiting_size;
+  std::string waitinglockid; 
+
+  unmarshall rep(state);
+  rep >> locks_size;
+
+  for(unsigned int i = 0; i < locks_size; i++){
+    lock_protocol::lockid_t lock_id;
+    rep >> lock_id;
+
+    lock_obj *lock_cache_obj = new lock_obj();
+    int temp_state;
+    rep >> temp_state;
+    lock_cache_obj->lock_state = (lock_obj_state)temp_state;
+    rep >> lock_cache_obj->owner_clientid;
+
+    //unmashall waiting list
+    rep >> waiting_size;
+    for(unsigned int i = 0; i < waiting_size; i++){
+      rep >> waitinglockid;
+      lock_cache_obj->waiting_clientids.push_back(waitinglockid);
+    }
+
+    lock_obj_map[lock_id] = *lock_cache_obj;
+  }
+
+  pthread_mutex_unlock(&lock_obj_map_mutex);
 }
 
