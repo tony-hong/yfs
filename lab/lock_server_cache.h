@@ -10,6 +10,9 @@
 
 
 class lock_server_cache {
+  // TODO: new for lab8 ?
+ private:
+  //class rsm *rsm;
 
  protected:
   //enum and structs
@@ -19,6 +22,12 @@ class lock_server_cache {
   	std::string owner_clientid; // used to send revoke
   	//std::string retrying_clientid; // used to match with incoming acquire request
   	std::list<std::string> waiting_clientids; // need to send retry
+    
+    //need the following three maps to track the sequential number from clients
+    std::map<std::string, lock_protocol::xid_t> highest_xid_from_client_map; //highest xid ever seen from a client
+    std::map<std::string, int> acquire_reply_map; //stores the last acquire reply to the client, in case of duplicated requests, send the same (stored) reply again
+    std::map<std::string, int> release_reply_map; //stores the last release reply to the client
+    
 
   	 lock_obj(){
       lock_state = FREE;
@@ -61,9 +70,10 @@ class lock_server_cache {
   void retryer();
 
   lock_protocol::status stat(lock_protocol::lockid_t, int &);
-  lock_protocol::status acquire(std::string id, lock_protocol::lockid_t lid, int &);
-  lock_protocol::status release(std::string id, lock_protocol::lockid_t lid, int &);
-  
+  lock_protocol::status acquire(std::string id, lock_protocol::lockid_t lid, lock_protocol::xid_t, int &);
+  lock_protocol::status release(std::string id, lock_protocol::lockid_t lid, lock_protocol::xid_t, int &);
+
+
   
 };
 
