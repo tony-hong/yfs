@@ -202,8 +202,9 @@ config::add(std::string new_m)
   m = mems;
   m.push_back(new_m);
   std::string v = value(m);
+  unsigned nxt_vid =  myvid+1;
   assert(pthread_mutex_unlock(&cfg_mutex)==0);
-  bool r = pro->run(myvid+1, mems, v);
+  bool r = pro->run(nxt_vid, mems, v);
   assert(pthread_mutex_lock(&cfg_mutex)==0);
   if (r) {
     printf("config::add: proposer returned success\n");
