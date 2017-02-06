@@ -171,9 +171,9 @@ rsm::recovery()
     printf("recovery: sync done\n");
 
     if (r){
-      inviewchange = false;
       myvs = cfg->vid();
       myvs.seqno = 1;
+      inviewchange = false;
     } 
     printf("recovery: go to sleep %d %d\n", insync, inviewchange);
     pthread_cond_wait(&recovery_cond, &rsm_mutex);
@@ -185,6 +185,9 @@ bool
 rsm::sync_with_backups()
 {
   // For lab 8
+  assert(pthread_mutex_lock(&invoke_mutex)==0);
+  assert(pthread_mutex_unlock(&invoke_mutex)==0);
+
   nbackup = cfg->get_curview().size();
   nbackup = nbackup - 1; //do not count primary
 
@@ -372,8 +375,7 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
   //I am the primary, and we are stable. 
   //First, set next view_num
   viewstamp cur_vs = myvs;
-  last_myvs = myvs;
-  myvs.seqno = myvs.seqno + 1;
+  
 
   // dummy is not used, only for rpc call
   int dummy;
@@ -409,6 +411,8 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
   //Third, if all replicas successes, I can process the requet now
   if(all_successful){
     r = execute(procno, req); // r must be assigned by the return value of execute()
+    last_myvs = myvs;
+    myvs.seqno = myvs.seqno + 1;
   } else{
     ret = rsm_client_protocol::BUSY;
   }
@@ -438,6 +442,7 @@ rsm::invoke(int proc, viewstamp vs, std::string req, int &dummy)
   }
 
   if(vs != myvs){ //not my expected view
+    printf("My expected vs is vid = %d seqno = %d, but the incoming vs is vid = %d seqno =%d \n", myvs.vid, myvs.seqno, vs.vid, vs.seqno);
     return rsm_protocol::ERR;
   }
 
@@ -445,10 +450,11 @@ rsm::invoke(int proc, viewstamp vs, std::string req, int &dummy)
     return rsm_protocol::ERR;
   }
 
-  last_myvs = myvs;
-  myvs.seqno++;
+  
   std::string r;
   execute(proc, req);
+  last_myvs = myvs;
+  myvs.seqno++;
   return ret;
 }
 
