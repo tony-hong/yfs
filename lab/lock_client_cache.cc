@@ -19,7 +19,7 @@ releasethread(void *x)
 int lock_client_cache::last_port = 0;
 
 lock_client_cache::lock_client_cache(std::string xdst, 
-				     class lock_release_user *_lu)
+             class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
   srand(time(NULL)^last_port);
@@ -60,13 +60,11 @@ lock_client_cache::releaser()
   // freed locks that have been revoked by the server, so that it can
   // send a release RPC.
   int ret, r;
-  unsigned int skip;
-realeaser_start:
+
   pthread_mutex_lock(&revoke_list_mutex);
-  skip = 0;
 
   while(true){
-    if(revoke_list.size() > skip){
+    if(revoke_list.size() > 0){
       lock_protocol::lockid_t lid = revoke_list.front();
       revoke_list.pop_front();
 
@@ -81,48 +79,33 @@ realeaser_start:
       //assert(ACQUIRING != c_lock.lock_state);
       printf("id = %s now tries to release lock lid = %016llx from server\n", id.c_str(), lid);  
 
-      if(RELEASING == c_lock.lock_state || FREE == c_lock.lock_state){
-        //c_lock.lock_state = RELEASING;
-        //do NOT hold mutex across RPC, thus we release the revoke_list_mutex
-        //We actually can also release the c_lock, but it may not necessary since if the state is RELEASING, no other threads should touch this lock
-        
-        printf("id = %s can release the lock lid = %016llx because the status is RELEASING or FREE\n", id.c_str(), lid);  
-        if(FREE == c_lock.lock_state){
-          c_lock.lock_state = RELEASING;
-          c_lock.revoke_flag = true;
-        }
-        
-        pthread_mutex_unlock(&revoke_list_mutex);
+      assert(RELEASING == c_lock.lock_state); //all entires in this list should have state == RELEASING
 
-        //we need the following if statement for lab6. That is, before we release the lock, we need to write the new extent to the extent server
-        if(lu != NULL){
+      pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+      pthread_mutex_unlock(&revoke_list_mutex);
+
+      if(lu != NULL){
           lu->dorelease(lid);
-        }
+      }
 
-        ret = rsmc->call(lock_protocol::release, id, lid, c_lock.xid, r);
-        
-        if(lock_protocol::OK == ret){
+      //do NOT hold mutex across RPC, thus we release the revoke_list_mutex
+      ret = rsmc->call(lock_protocol::release, id, lid, c_lock.xid, r);
+
+      if(lock_protocol::OK == ret){
+          pthread_mutex_lock(&c_lock.cached_lock_mutex);
+          assert(c_lock.lock_state == RELEASING);
           c_lock.lock_state = NONE;
           assert(true == c_lock.revoke_flag);
           c_lock.revoke_flag = false;
           pthread_cond_signal(&c_lock.ac_cv);
           pthread_mutex_unlock(&c_lock.cached_lock_mutex);
-          goto realeaser_start;
         }else{
           printf("ERROR from releaser in lock_client_cache\n");
           return;
-        }   
-      }else if(LOCKED == c_lock.lock_state || NONE == c_lock.lock_state || ACQUIRING == c_lock.lock_state){
-        printf("id = %s cannot release the lock lid = %016llx because the status is NONE OR LOCKED\n", id.c_str(), lid);  
-        c_lock.revoke_flag = true;
-        revoke_list.push_back(lid);
-        skip++;
-        pthread_mutex_unlock(&c_lock.cached_lock_mutex);
       }
       
     }
     pthread_cond_wait(&releaser_cv, &revoke_list_mutex); 
-    skip = 0; 
   }
 
   pthread_mutex_unlock(&revoke_list_mutex);
@@ -148,7 +131,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
   new_acquire:
     pthread_mutex_lock(&c_lock.cached_lock_mutex);
 
-    while(   (c_lock.lock_state != NONE && c_lock.lock_state != FREE)  || (c_lock.outstanding) ){
+    while((c_lock.lock_state != NONE && c_lock.lock_state != FREE ) || c_lock.outstanding ){
       pthread_cond_wait(&c_lock.ac_cv, &c_lock.cached_lock_mutex);
     }
 
@@ -166,6 +149,7 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
       pthread_mutex_lock(&c_lock.cached_lock_mutex);
       //assert(ACQUIRING == c_lock.lock_state); //since this thread calls RPC, all other acquire thread will not change the state
       c_lock.outstanding = false;
+
       if(lock_protocol::OK == ret){
         //Notice that the revoke_flag may be = true. But we ignore this revoke_flag this time
         //and STILL get the lock, in order to prevent a special case, that two clients acquire the same lock cucurrently and acquire rpc delays.
@@ -199,6 +183,7 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
   //operation on the ached lock 
   pthread_mutex_lock(&c_lock.cached_lock_mutex);
   assert(LOCKED == c_lock.lock_state);
+
   if(false == c_lock.revoke_flag){
     c_lock.lock_state = FREE;  // the lock is not revoked yet, other threads can still try to get the cached lock
     pthread_cond_signal(&c_lock.ac_cv);
@@ -206,15 +191,14 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
     return lock_protocol::OK;
   }else{
     c_lock.lock_state = RELEASING;
+
     pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
-    //lock thre revoke_list to make sure that the releaser thread is sleeping (waiting for condition)
-    //If we only send a signal to the releaser thread, it may arleady awake and ignore the signal
-    //In the worst case, the releaser ignores the single and then sleep => deadlock
-    //Note: we need to unlock c_lock.cached_lock_mutex first. Without unlocking it, we could encounter deadlock, since both the releaser and this release methode acquire both locks.
     pthread_mutex_lock(&revoke_list_mutex);
+    revoke_list.push_back(lid);
     pthread_cond_signal(&releaser_cv); // only the releaser thread waits for this condition variable
     pthread_mutex_unlock(&revoke_list_mutex);
+
     return lock_protocol::OK;
   }
   
@@ -223,11 +207,33 @@ lock_client_cache::release(lock_protocol::lockid_t lid)
 
 rlock_protocol::status
 lock_client_cache::revoke(lock_protocol::lockid_t lid, int &){
-  pthread_mutex_lock(&revoke_list_mutex);
-  printf("id = %s gets revoke request for lid = %016llx from server\n", id.c_str(), lid);  
-  revoke_list.push_back(lid);
-  pthread_cond_signal(&releaser_cv);
-  pthread_mutex_unlock(&revoke_list_mutex); 
+
+  //get the cached lock from the map
+  pthread_mutex_lock(&c_lock_map_mutex);
+  assert(c_lock_map.find(lid) != c_lock_map.end());
+  cached_lock &c_lock = c_lock_map[lid];  
+  pthread_mutex_unlock(&c_lock_map_mutex);
+
+
+  //operation on the ached lock 
+  pthread_mutex_lock(&c_lock.cached_lock_mutex);
+  if(FREE == c_lock.lock_state){ //good, we can release it now
+    c_lock.lock_state = RELEASING;
+    c_lock.revoke_flag = true;
+
+    // push it into the revoke list
+    pthread_mutex_lock(&revoke_list_mutex);
+    revoke_list.push_back(lid);
+    pthread_mutex_unlock(&revoke_list_mutex); 
+
+    pthread_cond_signal(&releaser_cv);
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    return rlock_protocol::OK;
+  }
+
+  assert(LOCKED == c_lock.lock_state || ACQUIRING == c_lock.lock_state); //Otherwise it should be locked now
+  c_lock.revoke_flag = true;
+  pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
   return rlock_protocol::OK;
 }
