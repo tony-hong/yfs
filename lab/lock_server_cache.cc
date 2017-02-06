@@ -162,17 +162,20 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
 
   printf("I have seen acquire request with xid = %016llx from client id: %s with lid = %016llx. \n", l_obj.highest_xid_from_client_map[id], id.c_str(), lid);
 
-  if(l_obj.highest_xid_from_client_map[id] == xid){ //this should be a duplicated request
-    assert(l_obj.acquire_reply_map.count(id) != 0); // I should remember the reply
-    lock_protocol::status ret = l_obj.acquire_reply_map[id];
-    pthread_mutex_unlock(&lock_obj_map_mutex);
-    return ret;
+  if(l_obj.highest_xid_from_client_map[id] == xid && l_obj.owner_clientid == id){ //this should be a duplicated request
+  
+      printf("duplicated accquire request, reuqire id = %s  current owner  id = %s \n", id.c_str(), l_obj.owner_clientid.c_str());
+      pthread_mutex_unlock(&lock_obj_map_mutex);
+      return lock_protocol::OK;
   }
 
-  assert(xid == (l_obj.highest_xid_from_client_map[id] + 1) );
+  if(l_obj.highest_xid_from_client_map[id] == xid && l_obj.owner_clientid != id){
+    printf("this should be a duplicated accquire request but we will send revoke agian tho the current owner = %s \n", l_obj.owner_clientid.c_str());
+  }else{
+    assert(xid == (l_obj.highest_xid_from_client_map[id] + 1) );
+    l_obj.highest_xid_from_client_map[id] = xid;
+  }
 
-  //since the request is new, we can forget the last release release_reply_map
-  l_obj.release_reply_map.erase(id);
 
   // if the lock is FREE
   if(FREE == l_obj.lock_state){
@@ -193,13 +196,6 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
 
     }
 
-
-
-  l_obj.acquire_reply_map[id] = lock_protocol::OK; // update remember list
-  printf("Now I remember that the reply request with xid = %016llx from client id: %s with lid = %016llx is OK \n", xid, id.c_str(), lid);
-  //TODO: what happens if the server crashes here, between these two updates?
-  l_obj.highest_xid_from_client_map[id] = xid; //update xid
-  printf("My new xid ever seen is xid = %016llx from client id: %s with lid = %016llx \n", xid, id.c_str(), lid);
   pthread_mutex_unlock(&lock_obj_map_mutex);
   return lock_protocol::OK;
   }
@@ -225,13 +221,6 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
       pthread_cond_signal(&revoker_condition);
       pthread_mutex_unlock(&revoke_list_mutex);
     }
-
-
-    l_obj.acquire_reply_map[id] = lock_protocol::RETRY; // update remember list
-    printf("Now I remember that the reply request with xid = %016llx from client id: %s with lid = %016llx is RETRY \n", xid, id.c_str(), lid);
-    //TODO: what happens if the server crashes here, between these two updates?
-    l_obj.highest_xid_from_client_map[id] = xid; //update xid
-    printf("My new xid ever seen is xid = %016llx from client id: %s with lid = %016llx \n", xid, id.c_str(), lid);
     
     //unlock and return
     pthread_mutex_unlock(&lock_obj_map_mutex);
@@ -253,11 +242,10 @@ lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, lock_pro
   lock_obj &l_obj = lock_obj_map[lid];
 
   if(xid == l_obj.highest_xid_from_client_map[id]){
-    if(l_obj.release_reply_map.count(id) > 0 ){// this is a duplicated release request
-      assert(l_obj.release_reply_map[id] == lock_protocol::OK);
-      pthread_mutex_unlock(&lock_obj_map_mutex);
-      return lock_protocol::OK;
+    if( l_obj.lock_state == FREE || l_obj.owner_clientid.empty() ){
+      printf("[debug] This should be a duplicated request\n");
     }
+
   }else{
     printf("[error] there is something wrong\n");
     assert(false);
@@ -272,8 +260,7 @@ lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, lock_pro
   //unlock and empty the owner
   l_obj.lock_state = FREE;
   l_obj.owner_clientid = "";
-  l_obj.release_reply_map[id] = lock_protocol::OK;
-
+  
   //if there is a client waiting for the lock, we should use retryer to send retry() to the next client in the waiting list (if there is at least one client in the waiting list)
   if(l_obj.waiting_clientids.size() > 0){
     std::string nxt_client_id = l_obj.waiting_clientids.front();

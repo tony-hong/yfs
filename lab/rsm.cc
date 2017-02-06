@@ -162,10 +162,10 @@ rsm::recovery()
 
 
     if (primary == cfg->myaddr()) {
-      printf("recovery: I am primary, sync with backups");
+      printf("recovery: I am primary, sync with backups\n");
       r = sync_with_backups();
     } else {
-      printf("recovery: I am a replica, sync with primary");
+      printf("recovery: I am a replica, sync with primary\n");
       r = sync_with_primary();
     }
     printf("recovery: sync done\n");
@@ -190,6 +190,8 @@ rsm::sync_with_backups()
 
   nbackup = cfg->get_curview().size();
   nbackup = nbackup - 1; //do not count primary
+
+  printf("wait for %d backups to sync with me \n", nbackup);
 
   while(nbackup > 0){
     pthread_cond_wait(&recovery_cond, &rsm_mutex);
@@ -401,6 +403,9 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
       assert(pthread_mutex_lock(&rsm_mutex)==0);
       if(ret != rsm_protocol::OK){
         all_successful = false;
+        assert(pthread_mutex_unlock(&rsm_mutex)==0);
+        assert(pthread_mutex_unlock(&invoke_mutex)==0);
+        return rsm_client_protocol::BUSY;
       }
     }else{
       printf("[debug] rsm::client_invoke h.get_rpcc() == NULL\n");
