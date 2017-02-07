@@ -280,8 +280,14 @@ config::heartbeater()
     //find the node with the smallest id
     m = me;
     for (unsigned i = 0; i < mems.size(); i++) {
-      if (m > mems[i])
-	m = mems[i];
+      std::istringstream ist(m);
+      std::istringstream ist1(mems[i]);
+      unsigned long long mbuf;
+      unsigned long long memsbuf;
+      ist >> mbuf;
+      ist1 >> memsbuf;
+      if (mbuf > memsbuf)      
+        m = mems[i];
     }
 
     if (m == me) {
