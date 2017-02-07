@@ -313,15 +313,19 @@ rsm::statetransferdone(std::string m) {
     ret = cl->call(rsm_protocol::transferdonereq, cfg->myaddr(), r);
     pthread_mutex_lock(&rsm_mutex);
 
-    unsigned curvid = cfg->vid_with_mutex();
-
-    if(r != curvid){
-      printf("primary's vid differs with me, my vid = %d, primar's vid = %d return false\n", curvid, r);
-      return false;
-    }
+    
 
     if(ret == rsm_protocol::OK){
       printf("rsm::statetransferdone: primary is noftified and returns OK\n");
+
+      unsigned curvid = cfg->vid_with_mutex();
+
+      if(r != curvid){
+      printf("primary's vid differs with me, my vid = %d, primar's vid = %d return false\n", curvid, r);
+      return false;
+      }
+
+
     }else{
       printf("rsm::statetransferdone: primary is noftified BUT doe not return OK\n");
       return false;
@@ -547,6 +551,7 @@ rsm::transferdonereq(std::string m, int &r)
 
   if(!insync){
     printf("rsm::transferdonereq: not in sync, return BUSY\n");
+    r = cfg->vid_with_mutex();
     assert (pthread_mutex_unlock(&rsm_mutex) == 0);
     return rsm_client_protocol::BUSY;
   }
