@@ -176,7 +176,7 @@ rsm::recovery()
     }
 
     if (r){
-      myvs = cfg->vid();
+      myvs = cfg->vid_with_mutex();
       myvs.seqno = 1;
       inviewchange = false;
     } 
