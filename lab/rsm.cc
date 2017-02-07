@@ -160,6 +160,8 @@ rsm::recovery()
       }
     }
 
+    unsigned vid_insync = cfg->vid_with_mutex();
+
 
     if (primary == cfg->myaddr()) {
       printf("recovery: I am primary, sync with backups\n");
@@ -170,10 +172,11 @@ rsm::recovery()
     }
     printf("recovery: sync done\n");
 
-    if(!r){
-      printf("recovery: sync failed, restart recovery\n");
+    if(vid_insync != cfg->vid_with_mutex()){
       continue;
     }
+
+    
 
     if (r){
       myvs = cfg->vid_with_mutex();
