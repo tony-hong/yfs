@@ -70,6 +70,19 @@ config::config(std::string _first, std::string _me, config_view_change *_vc)
   assert(pthread_mutex_unlock(&cfg_mutex)==0);
 }
 
+
+unsigned
+config::vid_with_mutex()
+{
+  assert(pthread_mutex_lock(&cfg_mutex)==0);
+  unsigned curvid = myvid;
+  assert(pthread_mutex_unlock(&cfg_mutex)==0);
+  return curvid;
+}
+
+
+
+
 void
 config::restore(std::string s)
 {

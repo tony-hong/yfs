@@ -39,6 +39,7 @@ class config : public paxos_change {
  public:
   config(std::string _first, std::string _me, config_view_change *_vc);
   unsigned vid() { return myvid; }
+  unsigned vid_with_mutex();
   std::string myaddr() { return me; };
   std::string dump() { return acc->dump(); };
   void restore(std::string s);
