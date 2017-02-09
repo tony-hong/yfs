@@ -27,6 +27,12 @@ class rsm : public config_view_change {
   bool inviewchange;
   unsigned nbackup;
 
+  //rsm must know something about view
+  unsigned vid_cur_rsm;
+  unsigned vid_insync_rsm;
+  std::vector<std::string> backups; //use list to detect potential duplicate request
+  std::string myname;
+
   // For testing purposes
   rpcs *testsvr;
   bool partitioned;
@@ -41,7 +47,7 @@ class rsm : public config_view_change {
 			      int &dummy);
   rsm_protocol::status transferreq(std::string src, viewstamp last,
 				   rsm_protocol::transferres &r);
-  rsm_protocol::status transferdonereq(std::string m, int &r);
+  rsm_protocol::status transferdonereq(std::string m,unsigned vid, int &r);
   rsm_protocol::status joinreq(std::string src, viewstamp last, 
 			       rsm_protocol::joinres &r);
   rsm_test_protocol::status test_net_repairreq(int heal, int &r);
@@ -68,6 +74,11 @@ class rsm : public config_view_change {
   void breakpoint1();
   void breakpoint2();
   void partition1();
+
+
+  void commit_change_without_mutex(unsigned vid);
+
+
  public:
   rsm (std::string _first, std::string _me);
   ~rsm() {};
@@ -75,7 +86,7 @@ class rsm : public config_view_change {
   bool amiprimary();
   void set_state_transfer(rsm_state_transfer *_stf) { stf = _stf; };
   void recovery();
-  void commit_change();
+  void commit_change(unsigned vid);
 
   template<class S, class A1, class R>
     void reg(int proc, S*, int (S::*meth)(const A1 a1, R &));

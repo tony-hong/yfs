@@ -7,7 +7,7 @@
 
 class config_view_change {
  public:
-  virtual void commit_change() = 0;
+  virtual void commit_change(unsigned vid) = 0;
   virtual ~config_view_change() {};
 };
 
@@ -47,6 +47,7 @@ class config : public paxos_change {
   bool ismember(std::string m);
   std::vector<std::string> get_curview();
   std::vector<std::string> get_prevview();
+  std::vector<std::string> get_view_pub(unsigned instance);
   std::string print_curview();
   void heartbeater(void);
   void paxos_commit(unsigned instance, std::string v);
