@@ -32,6 +32,30 @@ void
 rsm_client::primary_failure()
 {
   // For lab 8
+
+  printf("rsm_client::primary_failure(), we encounter primary failure\n");
+
+  assert(!known_mems.empty());
+  primary.id = known_mems.back();
+  known_mems.pop_back();
+
+  std::string p_name = primary.id;
+  printf("rsm_client::primary_failure(), we now try to connect with %s \n", p_name.c_str());
+
+  sockaddr_in dstsock;
+  make_sockaddr(p_name.c_str(), &dstsock);
+  primary.cl = new rpcc(dstsock);
+  primary.nref = 0;
+
+
+  int ret = primary.cl->bind(rpcc::to(1000));
+  if (ret < 0) {
+    printf("rsm_client::rsm_client bind failure %d failure w %s; exit\n", ret, 
+     primary.id.c_str());
+    exit(1);
+  }
+
+
 }
 
 rsm_protocol::status
