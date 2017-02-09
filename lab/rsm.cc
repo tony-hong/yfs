@@ -599,6 +599,7 @@ rsm::transferdonereq(std::string m, unsigned vid, int &r)
 
   if(!insync || vid != vid_insync_rsm){
     pthread_cond_signal(&sync_cond); // maybe already in sync, but I still wait for backups sync with me and did not realize a new view is formed, I should theck this (see sync_with_backups)
+    assert (pthread_mutex_unlock(&rsm_mutex) == 0);
     return rsm_protocol::BUSY;
   }
   
