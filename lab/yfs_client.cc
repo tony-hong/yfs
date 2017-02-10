@@ -10,11 +10,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <random>
 
+std::random_device rd;
+std::mt19937 rndgen(rd());
+std::uniform_int_distribution<int> uniformIntDistribution(0, 0x7fffffff);
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {
-  srand(time(NULL) ^ getpid() ^ rand());
+  int randseed = uniformIntDistribution(rndgen);
+  srand(time(NULL) ^ getpid() ^ randseed);
   ec = new extent_client(extent_dst);
   lu = new yfs_lock_release_user(ec);
   //lc = new lock_client(lock_dst);
@@ -474,5 +479,6 @@ yfs_client::deserialize(const std::string &buf, dirmap &dir_map)
 //generate a 64bit (long long) number
 unsigned long long 
 yfs_client::llrand(unsigned int isfile) {
-    return ((rand() % 0x7FFFFF) | (isfile << 31));
+    int randnum = uniformIntDistribution(rndgen);
+    return ((randnum % 0x7FFFFF) | (isfile << 31));
 }

@@ -65,36 +65,26 @@ sub spawn {
   }
 }
 
-sub randports {
-    my $num = shift;
-    my (%a); # create a hash table for remembering values
-    my @ports = ();
-    foreach (1 .. $num) {
-        my $r;
-        my $isPortUsed;
-        my $alreadyChosen;
-        do {
-            $r = int(rand(63500))+2000;
-            $isPortUsed = qx(ss -nat | grep :$r); # there may be false positives (e.g., prefixes of port numbers will match) but it's OK
-            $alreadyChosen = exists($a{$r});
-            if ($isPortUsed) { print "Port $r BUSY: output was [$isPortUsed]\n"; }
-            if ($alreadyChosen) { print "Port $r already chosen\n"; }
-        } until (!$isPortUsed and !$alreadyChosen); # loop until the value is OK
-        push(@ports, $r);
-        $a{$r}++;                  # remember that we saw it!
+sub findPortFreeAndNotIn {
+    my @alreadyChosenPorts = @_;
+    my %portsHashMap = map { $_ => 1 } @alreadyChosenPorts;
+    my $r;
+    my $isPortUsed;
+    my $alreadyChosen;
+    my $randomStart;
+    if (!@alreadyChosenPorts) {
+        $randomStart = 1500; # if no ports chosen yet, start from small port
+    } else {
+        $randomStart = $alreadyChosenPorts[-1]; # else start from the last/biggest port
     }
-    my @sortedPorts = sort { $a <=> $b } @ports;
-    printf "Randports: selected ports @sortedPorts\n";
-    return @sortedPorts;
-}
-
-sub print_config {
-  my @ports = @_;
-  open( CONFIG, ">config" ) or mydie( "Couldn't open config for writing" );
-  foreach my $p (@ports) {
-    printf CONFIG "%05d\n", $p;
-  }
-  close( CONFIG );
+    do {
+        $r = $randomStart + int(rand(10000));
+        $isPortUsed = qx(ss -nat | grep :$r); # there may be false positives (e.g., prefixes of port numbers will match) but it's OK
+        $alreadyChosen = exists($portsHashMap{$r});
+        if ($isPortUsed) { print "[PORTSELECT] Port $r BUSY: output was [$isPortUsed]\n"; }
+        if ($alreadyChosen) { print "[PORTSELECT] Port $r already chosen\n"; }
+    } until (!$isPortUsed and !$alreadyChosen and (!@alreadyChosenPorts or $r > $alreadyChosenPorts[-1])); # loop until the value is OK
+    return $r;
 }
 
 sub spawn_ls {
@@ -233,21 +223,30 @@ sub start_nodes ($$){
   @pid = ();
   @logs = ();
   @views = ();
-  for (my $i = 0; $i <= $#p; $i++) {
-    $in_views{$p[$i]} = 0;
-  }
+  #for (my $i = 0; $i <= $#p; $i++) {
+  #  $in_views{$p[$i]} = 0;
+  #}
+  #for (my $i = 0; $i <= 70000; $i++) { # TODO HACK
+  #  $in_views{$i} = 0;
+  #}
+  @p = ();
 
   my $n = shift;
   my $command = shift;
 
   for (my $i = 0; $i < $n; $i++) {
-		if ($command eq "ls") {
-			@pid = (@pid, spawn_ls($p[0],$p[$i]));
-			print "Start lock_server on $p[$i]\n";
-		}elsif ($command eq "config_server"){
-			@pid = (@pid, spawn_config($p[0],$p[$i]));
-			print "Start config on $p[$i]\n";
-		}
+    my $goodport = findPortFreeAndNotIn(@p);
+    print "Port $goodport is free. Start lock server $i ASAP...\n";
+    $p[$i] = $goodport;
+    $in_views{$goodport} = 0;
+
+    if ($command eq "ls") {
+      @pid = (@pid, spawn_ls($p[0],$p[$i]));
+      print "Start lock_server on $p[$i]\n";
+    } elsif ($command eq "config_server"){
+      @pid = (@pid, spawn_config($p[0],$p[$i]));
+      print "Start config on $p[$i]\n";
+    }
     sleep 1;
 
     my @vv = @p[0..$i];
@@ -265,10 +264,7 @@ if (defined($options{k})) {
   $always_kill = 1;
 }
 
-#get a sorted list of random ports
-@p = randports(5);
-print_config( @p[0..4] );
-
+@p = (); # global variable for storing port numbers. Expected to be sorted.
 my @do_run = ();
 my $NUM_TESTS = 17;
 
@@ -920,5 +916,3 @@ if ($do_run[16]) {
 }
 
 print "tests done OK\n";
-
-unlink("config");
