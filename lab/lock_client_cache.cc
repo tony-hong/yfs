@@ -231,7 +231,7 @@ lock_client_cache::revoke(lock_protocol::lockid_t lid, int &){
     return rlock_protocol::OK;
   }
 
-  assert(LOCKED == c_lock.lock_state || ACQUIRING == c_lock.lock_state); //Otherwise it should be locked now
+  //assert(LOCKED == c_lock.lock_state || ACQUIRING == c_lock.lock_state); //Otherwise it should be locked now
   c_lock.revoke_flag = true;
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
@@ -249,9 +249,12 @@ lock_client_cache::retry(lock_protocol::lockid_t lid, int &){
   
   //operation on the ached lock 
   pthread_mutex_lock(&c_lock.cached_lock_mutex);
-  assert(ACQUIRING == c_lock.lock_state);
-  c_lock.lock_state = NONE;
-  pthread_cond_signal(&c_lock.ac_cv);
+
+  if(ACQUIRING == c_lock.lock_state){
+    c_lock.lock_state = NONE;
+    pthread_cond_signal(&c_lock.ac_cv);
+  }
+  
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
   return rlock_protocol::OK;
