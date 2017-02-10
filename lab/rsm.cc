@@ -561,6 +561,7 @@ rsm::invoke(int proc, viewstamp vs, std::string req, int &dummy)
   execute(proc, req);
   last_myvs = myvs;
   myvs.seqno++;
+  breakpoint1();
   return ret;
 }
 
