@@ -507,6 +507,7 @@ rsm::client_invoke(int procno, std::string req, std::string &r)
         assert(pthread_mutex_unlock(&invoke_mutex)==0);
         return rsm_client_protocol::BUSY;
       }
+      breakpoint1();
     }else{
       printf("[debug] rsm::client_invoke h.get_rpcc() == NULL\n");
     }

@@ -244,6 +244,8 @@ lock_server_cache::release(std::string id, lock_protocol::lockid_t lid, lock_pro
   if(xid == l_obj.highest_xid_from_client_map[id]){
     if( l_obj.lock_state == FREE || l_obj.owner_clientid.empty() ){
       printf("[debug] This should be a duplicated request\n");
+      pthread_mutex_unlock(&lock_obj_map_mutex);
+      return lock_protocol::OK;
     }
 
   }else{

@@ -64,7 +64,7 @@ lock_client_cache::releaser()
   pthread_mutex_lock(&revoke_list_mutex);
 
   while(true){
-    if(revoke_list.size() > 0){
+    while(revoke_list.size() > 0){
       lock_protocol::lockid_t lid = revoke_list.front();
       revoke_list.pop_front();
 
