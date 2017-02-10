@@ -158,9 +158,10 @@ config::paxos_commit(unsigned instance, std::string value)
 
   mems = newmem;
   myvid = instance;
+  unsigned cur_vid = myvid;
   if (vc) {
     assert(pthread_mutex_unlock(&cfg_mutex)==0);
-    vc->commit_change();
+    vc->commit_change(cur_vid);
     assert(pthread_mutex_lock(&cfg_mutex)==0);
   }
   assert(pthread_mutex_unlock(&cfg_mutex)==0);
@@ -195,6 +196,19 @@ config::get_prevview()
   assert(pthread_mutex_unlock(&cfg_mutex)==0);
   return v;
 }
+
+
+std::vector<std::string>
+config::get_view_pub(unsigned instance)
+{
+  std::vector<std::string> v;
+  assert(pthread_mutex_lock(&cfg_mutex)==0);
+  v = get_view(instance);
+  assert(pthread_mutex_unlock(&cfg_mutex)==0);
+  return v;
+}
+
+
 
 std::string 
 config::print_curview() 

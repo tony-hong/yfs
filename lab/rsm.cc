@@ -113,6 +113,16 @@ rsm::rsm(std::string _first, std::string _me)
 
   cfg = new config(_first, _me, this);
 
+  myname = _me;
+  vid_insync_rsm = 0;
+
+
+  if (_first == _me) {
+      vid_cur_rsm = 1;
+  }else{
+      vid_cur_rsm = 0;
+  }
+
   rsmrpc = cfg->get_rpcs();
   rsmrpc->reg(rsm_client_protocol::invoke, this, &rsm::client_invoke);
   rsmrpc->reg(rsm_client_protocol::members, this, &rsm::client_members);
@@ -149,18 +159,23 @@ rsm::recovery()
 
   assert(pthread_mutex_lock(&rsm_mutex)==0);
 
+  printf("recovery: starts recovery\n");
+
   while (1) {
     while (!cfg->ismember(cfg->myaddr())) {
       if (join(primary)) {
-	printf("recovery: joined\n");
+	       printf("recovery: joined\n");
+         commit_change_without_mutex( cfg -> vid_with_mutex() );
       } else {
-	assert(pthread_mutex_unlock(&rsm_mutex)==0);
-	sleep (30); // XXX make another node in cfg primary?
-	assert(pthread_mutex_lock(&rsm_mutex)==0);
+	     assert(pthread_mutex_unlock(&rsm_mutex)==0);
+	     sleep (30); // XXX make another node in cfg primary?
+	     assert(pthread_mutex_lock(&rsm_mutex)==0);
       }
     }
 
-    unsigned vid_insync = cfg->vid_with_mutex();
+
+
+    vid_insync_rsm = vid_cur_rsm;
 
 
     if (primary == cfg->myaddr()) {
@@ -172,14 +187,14 @@ rsm::recovery()
     }
     printf("recovery: sync done\n");
 
-    if(vid_insync != cfg->vid_with_mutex()){
+    if(vid_insync_rsm != vid_cur_rsm){
       continue;
     }
 
     
 
     if (r){
-      myvs = cfg->vid_with_mutex();
+      myvs = vid_cur_rsm;
       myvs.seqno = 1;
       inviewchange = false;
     } 
@@ -193,6 +208,7 @@ bool
 rsm::sync_with_backups()
 {
   // For lab 8
+  insync = true;
 
   assert(pthread_mutex_unlock(&rsm_mutex)==0);
 
@@ -201,28 +217,26 @@ rsm::sync_with_backups()
 
   assert(pthread_mutex_lock(&rsm_mutex)==0);
 
-  insync = true;
 
-  nbackup = cfg->get_curview().size();
-  nbackup = nbackup - 1; //do not count primary
+  
+  backups.clear();
+  std::vector<std::string> tmp = cfg->get_view_pub(vid_insync_rsm);
 
-  //curvid = .. is only for debug popurse, curvide maybe differ to curview!!!
-  unsigned curvid = cfg->vid_with_mutex(); 
+  for(unsigned i = 0;  i < tmp.size(); i++){
+    if(tmp[i] != myname){
+      backups.push_back(tmp[i]);
+    }
+  }
 
-  printf("rsm::sync_with_backups: wait for %d backups to sync with me, curvid = %d \n", nbackup, curvid);
 
-  while(nbackup > 0 && insync){
+  while(!backups.empty() && vid_insync_rsm == vid_cur_rsm){
     pthread_cond_wait(&sync_cond, &rsm_mutex);
   }
 
-  if(insync == false){
-    printf("rsm::sync_with_backups: my insync is set to false, I think new view is formed, restart sync\n");
-    return false;
-  }
 
   insync = false;
   
-  return true;
+  return vid_insync_rsm == vid_cur_rsm;
 }
 
 
@@ -231,40 +245,53 @@ rsm::sync_with_primary()
 {
   // For lab 8  
   //insync = true;
-  bool transfer_succ = false;
-  bool transfer_done_succ = false;
-
+  bool succ = false;
   insync = true;
 
-  unsigned cur_vs = cfg->vid_with_mutex();
+  std::string primary_cur = primary;
 
-  printf("rsm::sync_with_primary: ready to sync, cur_vs = %d\n", cur_vs );
+  pthread_mutex_unlock(&rsm_mutex);
 
-  transfer_succ = statetransfer(primary);
+  while(true){
+    succ = false;
+    
+      pthread_mutex_lock(&rsm_mutex);
 
-  if(transfer_succ){
-    printf("rsm::sync_with_primary: I am a replica, sync with primary successed\n");
-    transfer_done_succ = statetransferdone(primary);
-    if(transfer_done_succ){
-      printf("rsm::sync_with_primary: I am a replica, statetransferdone successes\n");
+      if(vid_insync_rsm != vid_cur_rsm){
+        //we have a new view
+        //primary may already have synced with me, which is good, we can safely move to the new view
+        //primary may not have synced with me, in this case we have two subcases
+        //primary's view is older than me, then no problem, it will not wait for me forever, it will eventually move to the new view
+        //primary's view is newer than me, then no problem, I will sync with him after I have moved to the new view
+        printf("rsm::sync_with_primary: vid_insync_rsm != vid_cur_rsm, break now \n");
+        pthread_mutex_unlock(&rsm_mutex);
+        break; 
+      }
+
+
+      succ = statetransfer(primary_cur);
+
+      if(succ){
+        succ = statetransferdone(primary_cur);
+      }
+
+
+      pthread_mutex_unlock(&rsm_mutex);
+    
+    if(succ){
+      break; //sync sucessed
     }else{
-      insync = false;
-      return false;
+      printf("rsm::sync_with_primary: failed, sleep 2 and try again \n");
+      sleep(1); //sync failed, sleep and try again  
     }
-  }else{
-    insync = false;
-    return false;
+
   }
 
-  if(insync == false){
-    printf("rsm::sync_with_primary: my insync is set to false, I think new view is formed, restart sync\n");
-    printf("rsm::sync_with_primary: cur_vs = %d\n", cfg->vid_with_mutex());
-    return false;
-  }
+  pthread_mutex_lock(&rsm_mutex);
 
   insync = false;
 
-  return true;
+  return vid_insync_rsm == vid_cur_rsm;
 }
 
 
@@ -313,24 +340,17 @@ rsm::statetransferdone(std::string m) {
     printf("rsm::statetransferdone: Now notify the primary that statetransfer is done\n");
 
     pthread_mutex_unlock(&rsm_mutex); //don't hold the mutex while calling RPC
-    ret = cl->call(rsm_protocol::transferdonereq, cfg->myaddr(), r);
+    ret = cl->call(rsm_protocol::transferdonereq, myname, vid_insync_rsm, r);
     pthread_mutex_lock(&rsm_mutex);
-
-    
 
     if(ret == rsm_protocol::OK){
       printf("rsm::statetransferdone: primary is noftified and returns OK\n");
 
-      unsigned curvid = cfg->vid_with_mutex();
-
-      if(r != curvid){
-      printf("primary's vid differs with me, my vid = %d, primar's vid = %d return false\n", curvid, r);
-      return false;
-      }
-
+      return true;
 
     }else{
-      printf("rsm::statetransferdone: primary is noftified BUT doe not return OK\n");
+      assert(ret == rsm_protocol::BUSY);
+      printf("rsm::statetransferdone: primary is noftified, but it is BUSY\n");
       return false;
     }
   }else{
@@ -338,7 +358,7 @@ rsm::statetransferdone(std::string m) {
     return false;
   }
   
-  return true;
+  assert(false);
 
 }
 
@@ -374,24 +394,41 @@ rsm::join(std::string m) {
  */
 
 void 
-rsm::commit_change() 
+rsm::commit_change(unsigned vid) 
 {
-  printf("[debug] rsm::commit_change\n");
+  
   pthread_mutex_lock(&rsm_mutex);
   // Lab 7:
   // - If I am not part of the new view, start recovery
-  inviewchange = true;
-  set_primary();  // update primary
+  printf("[debug] rsm::commit_change, commited vid is vid = %d\n", vid);
+  commit_change_without_mutex(vid);
 
-  if(insync){
-    printf("already in sync, set insync = false, notify myself if i am a primary and waiting for backups\n");
-    insync = false;
-  }
+  pthread_mutex_unlock(&rsm_mutex);
+}
+
+
+
+void 
+rsm::commit_change_without_mutex(unsigned vid) 
+{
+  //we need this function because in recovery, we already hold the rsm_mutex.
+  inviewchange = true;
+  vid_cur_rsm = vid;
+  set_primary();  // update primary
 
   pthread_cond_signal(&recovery_cond);
   pthread_cond_signal(&sync_cond);
-  pthread_mutex_unlock(&rsm_mutex);
+
 }
+
+
+
+
+
+
+
+
+
 
 
 std::string
@@ -547,25 +584,36 @@ rsm::transferreq(std::string src, viewstamp last, rsm_protocol::transferres &r)
   * RPC handler: Send back the local node's latest viewstamp
   */
 rsm_protocol::status
-rsm::transferdonereq(std::string m, int &r)
+rsm::transferdonereq(std::string m, unsigned vid, int &r)
 {
   int ret = rsm_client_protocol::OK;
   assert (pthread_mutex_lock(&rsm_mutex) == 0);
 
-  if(!insync){
-    printf("rsm::transferdonereq: not in sync, return BUSY\n");
-    r = cfg->vid_with_mutex();
+  printf("rsm::transferdonereq: get transferdone reqeust, incoming vid = %d my vid_insync_rsm = %d\n", vid, vid_insync_rsm);
+
+  //if !insync, means primary is not ready for sync, backups could/should try again later
+  //if vid != vid_insync_rsm, the backup's vid_insync differs with mine
+  //if backup's vid_insync is greater than me, then may be a new view if formed, I need to move to the new view
+  //if backup's vid_insync is less than me, then the backup should realize that sometime later and eventually move to the new view 
+
+
+  if(!insync || vid != vid_insync_rsm){
+    pthread_cond_signal(&sync_cond); // maybe already in sync, but I still wait for backups sync with me and did not realize a new view is formed, I should theck this (see sync_with_backups)
     assert (pthread_mutex_unlock(&rsm_mutex) == 0);
-    return rsm_client_protocol::BUSY;
+    return rsm_protocol::BUSY;
   }
   
-  nbackup = nbackup - 1;
+  std::vector<std::string>::iterator iter;
 
-  r = cfg->vid_with_mutex();
+  for (iter = backups.begin(); iter != backups.end(); ++iter) {
+    if (*iter == m) {
+        backups.erase(iter);
+        break;
+    }
+  }
 
-  printf("rsm::transferdonereq: I am in sync, nbackup -1 and my vid is %d \n", r);
 
-  if (nbackup == 0){
+  if (backups.empty()){
     pthread_cond_broadcast(&sync_cond);
   }
 
