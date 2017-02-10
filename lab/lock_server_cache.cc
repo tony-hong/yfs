@@ -162,6 +162,12 @@ lock_server_cache::acquire(std::string id, lock_protocol::lockid_t lid, lock_pro
 
   printf("I have seen acquire request with xid = %016llx from client id: %s with lid = %016llx. \n", l_obj.highest_xid_from_client_map[id], id.c_str(), lid);
 
+  if(l_obj.owner_clientid == id){
+      pthread_mutex_unlock(&lock_obj_map_mutex);
+      return lock_protocol::OK;
+  }
+
+
   if(l_obj.highest_xid_from_client_map[id] == xid && l_obj.owner_clientid == id){ //this should be a duplicated request
   
       printf("duplicated accquire request, reuqire id = %s  current owner  id = %s \n", id.c_str(), l_obj.owner_clientid.c_str());

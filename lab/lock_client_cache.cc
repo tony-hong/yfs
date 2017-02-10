@@ -16,6 +16,16 @@ releasethread(void *x)
   return 0;
 }
 
+
+static void *
+auto_retry_thread(void *x)
+{
+  lock_client_cache *cc = (lock_client_cache *) x;
+  cc->auto_retryer();
+  return 0;
+}
+
+
 int lock_client_cache::last_port = 0;
 
 lock_client_cache::lock_client_cache(std::string xdst, 
@@ -41,6 +51,9 @@ lock_client_cache::lock_client_cache(std::string xdst,
   assert(pthread_mutex_init(&revoke_list_mutex, NULL) == 0);
   assert(pthread_cond_init(&releaser_cv, NULL) == 0);
 
+
+  assert(pthread_mutex_init(&auto_retry_map_mutex, NULL) == 0);
+
   //for lab8, create rsm_client object
   rsmc = new rsm_client(xdst);
   //for lab8, add sequential number, initial value is 0
@@ -49,6 +62,14 @@ lock_client_cache::lock_client_cache(std::string xdst,
   pthread_t th;
   int r = pthread_create(&th, NULL, &releasethread, (void *) this);
   assert (r == 0);
+
+
+  pthread_t th2;
+  r = pthread_create(&th2, NULL, &auto_retry_thread, (void *) this);
+  assert (r == 0);
+
+
+
 }
 
 
@@ -113,6 +134,62 @@ lock_client_cache::releaser()
 }
 
 
+
+void
+lock_client_cache::auto_retryer(){
+
+  std::map<lock_protocol::lockid_t, time_t>::iterator iter;
+
+  
+  while(true){
+
+    sleep(10);
+
+    pthread_mutex_lock(&auto_retry_map_mutex);
+    printf("lock_client_cache::auto_retryer: hier is auto_retryer, my name is %s time is %lld \n",id.c_str(), (long long) time(0) );
+
+    iter = auto_retry_map.begin();
+
+     while (iter != auto_retry_map.end()) {
+      lock_protocol::lockid_t lid = iter->first;
+
+      //get the c_lock
+      pthread_mutex_lock(&c_lock_map_mutex);
+      assert(c_lock_map.find(lid) != c_lock_map.end());
+      cached_lock &c_lock = c_lock_map[lid];
+      pthread_mutex_unlock(&c_lock_map_mutex);
+
+      pthread_mutex_lock(&c_lock.cached_lock_mutex);
+
+      
+
+      if(ACQUIRING != c_lock.lock_state){
+        auto_retry_map.erase(iter++);
+      }else{
+        double diff = difftime(time(0), iter->second);
+        printf("diff is %f \n", diff);
+        if(diff >= 3){
+          c_lock.lock_state = NONE;
+          auto_retry_map.erase(iter++);
+          pthread_cond_signal(&c_lock.ac_cv);
+        }else{
+          ++iter;
+        }
+      }
+
+
+      pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+      
+     }
+      
+    pthread_mutex_unlock(&auto_retry_map_mutex); 
+  }
+
+
+}
+
+
+
 lock_protocol::status
 lock_client_cache::acquire(lock_protocol::lockid_t lid)
 {
@@ -155,9 +232,21 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
         //and STILL get the lock, in order to prevent a special case, that two clients acquire the same lock cucurrently and acquire rpc delays.
         c_lock.lock_state = LOCKED;
         pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+
+        pthread_mutex_lock(&auto_retry_map_mutex);
+        auto_retry_map[lid] = time(NULL);
+        pthread_mutex_unlock(&auto_retry_map_mutex);
+
+
         return lock_protocol::OK;
       }else if (lock_protocol::RETRY == ret){
         pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+
+
+        pthread_mutex_lock(&auto_retry_map_mutex);
+        auto_retry_map[lid] = time(NULL);
+        pthread_mutex_unlock(&auto_retry_map_mutex);
+
         goto new_acquire; //we need start over, and we STILL hold the lock.
       }
     }
@@ -165,6 +254,12 @@ lock_client_cache::acquire(lock_protocol::lockid_t lid)
     if(FREE == c_lock.lock_state){
       c_lock.lock_state = LOCKED;
       pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+
+      pthread_mutex_lock(&auto_retry_map_mutex);
+      auto_retry_map[lid] = time(NULL);
+      pthread_mutex_unlock(&auto_retry_map_mutex);
+
+
       return lock_protocol::OK;
     }
 
@@ -217,6 +312,13 @@ lock_client_cache::revoke(lock_protocol::lockid_t lid, int &){
 
   //operation on the ached lock 
   pthread_mutex_lock(&c_lock.cached_lock_mutex);
+
+  if(c_lock.revoke_flag == true){
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    return rlock_protocol::OK;
+  }
+
+
   if(FREE == c_lock.lock_state){ //good, we can release it now
     c_lock.lock_state = RELEASING;
     c_lock.revoke_flag = true;
@@ -231,7 +333,7 @@ lock_client_cache::revoke(lock_protocol::lockid_t lid, int &){
     return rlock_protocol::OK;
   }
 
-  assert(LOCKED == c_lock.lock_state || ACQUIRING == c_lock.lock_state); //Otherwise it should be locked now
+  assert(LOCKED == c_lock.lock_state || ACQUIRING == c_lock.lock_state || NONE == c_lock.lock_state); //Otherwise it should be locked now
   c_lock.revoke_flag = true;
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
@@ -249,9 +351,13 @@ lock_client_cache::retry(lock_protocol::lockid_t lid, int &){
   
   //operation on the ached lock 
   pthread_mutex_lock(&c_lock.cached_lock_mutex);
-  assert(ACQUIRING == c_lock.lock_state);
-  c_lock.lock_state = NONE;
-  pthread_cond_signal(&c_lock.ac_cv);
+  //assert(ACQUIRING == c_lock.lock_state);
+
+  if(ACQUIRING == c_lock.lock_state){
+    c_lock.lock_state = NONE;
+    pthread_cond_signal(&c_lock.ac_cv);
+  }
+
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
 
   return rlock_protocol::OK;

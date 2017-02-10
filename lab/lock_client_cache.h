@@ -105,10 +105,12 @@ class lock_client_cache : public lock_client {
   //maps and lists
   std::map<lock_protocol::lockid_t, cached_lock> c_lock_map; //cached lock map
   std::list<lock_protocol::lockid_t> revoke_list;  //list that saved revoke request from server
+  std::map<lock_protocol::lockid_t, time_t> auto_retry_map; 
 
   //mutexes
   pthread_mutex_t c_lock_map_mutex;
   pthread_mutex_t revoke_list_mutex;
+  pthread_mutex_t auto_retry_map_mutex;
 
   //condition variables
   pthread_cond_t releaser_cv; //only the releaser thread should wait for this cv
@@ -123,6 +125,7 @@ class lock_client_cache : public lock_client {
   lock_protocol::status acquire(lock_protocol::lockid_t);
   lock_protocol::status release(lock_protocol::lockid_t);
   void releaser();
+  void auto_retryer();
 
   //RPC function which will called by the LOCK_SERVER_CACHE
   rlock_protocol::status revoke(lock_protocol::lockid_t, int &);
