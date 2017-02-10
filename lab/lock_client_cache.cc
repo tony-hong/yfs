@@ -91,6 +91,8 @@ lock_client_cache::releaser()
       //do NOT hold mutex across RPC, thus we release the revoke_list_mutex
       ret = rsmc->call(lock_protocol::release, id, lid, c_lock.xid, r);
 
+      pthread_mutex_lock(&revoke_list_mutex); //get the mutex again
+
       if(lock_protocol::OK == ret){
           pthread_mutex_lock(&c_lock.cached_lock_mutex);
           assert(c_lock.lock_state == RELEASING);
@@ -101,8 +103,9 @@ lock_client_cache::releaser()
           pthread_mutex_unlock(&c_lock.cached_lock_mutex);
         }else{
           printf("ERROR from releaser in lock_client_cache\n");
+          assert(false);
           return;
-      }
+        }
       
     }
     pthread_cond_wait(&releaser_cv, &revoke_list_mutex); 
