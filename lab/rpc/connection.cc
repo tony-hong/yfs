@@ -298,8 +298,7 @@ tcpsconn::tcpsconn(chanmgr *m1, int port, int lossytest)
 	setsockopt(tcp_, IPPROTO_TCP, TCP_NODELAY, &yes, sizeof(yes));
 
 	if(bind(tcp_, (sockaddr *)&sin, sizeof(sin)) < 0){
-		perror("accept_loop tcp bind:");
-		assert(0);
+        throw PortBusyException(std::string("accept_loop tcp bind error: ") + std::string(strerror(errno))); 
 	}
 
 	if(listen(tcp_, 1000) < 0) {

@@ -7,10 +7,15 @@
 #include <netinet/in.h>
 
 #include <map>
+#include <stdexcept>
 
 #include "pollmgr.h"
 
 class connection;
+
+class PortBusyException : public std::runtime_error {
+   using runtime_error::runtime_error;
+};
 
 class chanmgr {
 	public:
