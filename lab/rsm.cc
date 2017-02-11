@@ -339,9 +339,9 @@ rsm::statetransferdone(std::string m) {
   if (cl){
     printf("rsm::statetransferdone: Now notify the primary that statetransfer is done\n");
 
-    pthread_mutex_unlock(&rsm_mutex); //don't hold the mutex while calling RPC
-    ret = cl->call(rsm_protocol::transferdonereq, myname, vid_insync_rsm, r);
-    pthread_mutex_lock(&rsm_mutex);
+    //pthread_mutex_unlock(&rsm_mutex); //don't hold the mutex while calling RPC
+    ret = cl->call(rsm_protocol::transferdonereq, myname, vid_insync_rsm, r, rpcc::to(1000));
+    //pthread_mutex_lock(&rsm_mutex);
 
     if(ret == rsm_protocol::OK){
       printf("rsm::statetransferdone: primary is noftified and returns OK\n");
@@ -349,8 +349,8 @@ rsm::statetransferdone(std::string m) {
       return true;
 
     }else{
-      assert(ret == rsm_protocol::BUSY);
-      printf("rsm::statetransferdone: primary is noftified, but it is BUSY\n");
+      //assert(ret == rsm_protocol::BUSY);
+      printf("rsm::statetransferdone: primary is noftified, but it is BUSY (or ERR)\n");
       return false;
     }
   }else{

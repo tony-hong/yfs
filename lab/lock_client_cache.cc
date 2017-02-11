@@ -77,11 +77,11 @@ lock_client_cache::releaser()
 
       //operations on c_lock
       pthread_mutex_lock(&c_lock.cached_lock_mutex);
-      //assert(ACQUIRING != c_lock.lock_state);
+      
       printf("id = %s now tries to release lock lid = %016llx from server\n", id.c_str(), lid);  
 
       assert(RELEASING == c_lock.lock_state); //all entires in this list should have state == RELEASING
-
+      lock_protocol::xid_t cur_xid = c_lock.xid;
       pthread_mutex_unlock(&c_lock.cached_lock_mutex);
       
 
@@ -90,7 +90,7 @@ lock_client_cache::releaser()
       }
 
       //do NOT hold mutex across RPC, thus we release the revoke_list_mutex
-      ret = rsmc->call(lock_protocol::release, id, lid, c_lock.xid, r);
+      ret = rsmc->call(lock_protocol::release, id, lid, cur_xid, r);
 
       
 
@@ -262,6 +262,8 @@ lock_client_cache::retry(lock_protocol::lockid_t lid, int &){
   if(ACQUIRING == c_lock.lock_state){
     c_lock.lock_state = NONE;
     pthread_cond_signal(&c_lock.ac_cv);
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    return rlock_protocol::OK;
   }
   
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
