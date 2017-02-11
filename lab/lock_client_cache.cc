@@ -31,14 +31,7 @@ lock_client_cache::lock_client_cache(std::string xdst,
   srand(time(NULL)^last_port);
   //rlock_port = ((rand()%32000) | (0x1 << 10));
   rlock_port = uniformIntDistribution(rndgen);
-  const char *hname;
-  // assert(gethostname(hname, 100) == 0);
-  hname = "127.0.0.1";
-  std::ostringstream host;
-  host << hname << ":" << rlock_port;
-  id = host.str();
-  last_port = rlock_port;
-  //rpcs *rlsrpc = new rpcs(rlock_port);
+
   
   rpcs* rlsrpc;
   
@@ -52,6 +45,17 @@ lock_client_cache::lock_client_cache(std::string xdst,
             rlock_port = uniformIntDistribution(rndgen);
         }
     }
+    
+    
+  const char *hname;
+  // assert(gethostname(hname, 100) == 0);
+  hname = "127.0.0.1";
+  std::ostringstream host;
+  host << hname << ":" << rlock_port;
+  id = host.str();
+  last_port = rlock_port;
+  //rpcs *rlsrpc = new rpcs(rlock_port);    
+    
   
   
   /* register RPC handlers with rlsrpc */
