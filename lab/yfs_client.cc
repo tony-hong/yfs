@@ -12,9 +12,7 @@
 #include <fcntl.h>
 #include <random>
 
-std::random_device rd;
-std::mt19937 rndgen(rd());
-std::uniform_int_distribution<int> uniformIntDistribution(0, 0x7fffffff);
+
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst)
 {

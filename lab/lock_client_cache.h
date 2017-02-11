@@ -5,6 +5,7 @@
 #define lock_client_cache_h
 
 #include <string>
+#include <random>
 
 #include "lock_protocol.h"
 #include "rpc.h"
