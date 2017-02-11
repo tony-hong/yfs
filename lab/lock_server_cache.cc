@@ -91,9 +91,9 @@ lock_server_cache::revoker()
         //get the list mutex again
         pthread_mutex_lock(&revoke_list_mutex);
       }
-    }else{
-      pthread_cond_wait(&revoker_condition, &revoke_list_mutex); 
     }
+    pthread_cond_wait(&revoker_condition, &revoke_list_mutex); 
+    
   }
 
   pthread_mutex_unlock(&revoke_list_mutex);
@@ -127,9 +127,9 @@ lock_server_cache::retryer()
         //get the list mutex again
         pthread_mutex_lock(&retry_list_mutex);
       }
-    }else{
-      pthread_cond_wait(&retryer_condition, &retry_list_mutex); 
     }
+    pthread_cond_wait(&retryer_condition, &retry_list_mutex); 
+    
   }
 
   pthread_mutex_unlock(&retry_list_mutex);
