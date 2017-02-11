@@ -27,15 +27,10 @@ public:
     }
 };
 
-
 class yfs_client {
   extent_client *ec;
   lock_client *lc;
   lock_release_user *lu;
-
-  std::random_device rd;
-  std::mt19937 rndgen(rd());
-  std::uniform_int_distribution<int> uniformIntDistribution(0, 0x7fffffff);
 
  public:
 
