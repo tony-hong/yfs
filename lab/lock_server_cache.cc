@@ -76,7 +76,7 @@ lock_server_cache::revoker()
   pthread_mutex_lock(&revoke_list_mutex);
 
   while(true){
-    if(!revoke_list.empty()){
+    while(!revoke_list.empty()){
       lock_info l_info = revoke_list.front();
       revoke_list.pop_front();
 
@@ -112,7 +112,7 @@ lock_server_cache::retryer()
   int r;
   pthread_mutex_lock(&retry_list_mutex);
   while(true){
-    if(!retry_list.empty()){
+    while(!retry_list.empty()){
       lock_info l_info = retry_list.front();
       retry_list.pop_front();
 
