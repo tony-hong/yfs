@@ -325,7 +325,7 @@ class rpcs : public chanmgr {
 	tcpsconn* listener_;
 
 	public:
-	rpcs(unsigned int port, int counts=0);
+	rpcs(unsigned int port, int counts=0) throw (std::string);
 	~rpcs();
 
 	//RPC handler for clients binding

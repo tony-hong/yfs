@@ -382,8 +382,8 @@ compress:
 }
 
 
-rpcs::rpcs(unsigned int p1, int count)
-  : port_(p1), counting_(count), curr_counts_(count), lossytest_(0), reachable_ (true)
+rpcs::rpcs(unsigned int p1, int count) throw (std::string)
+  : port_(p1), counting_(count), curr_counts_(count), lossytest_(0), reachable_ (true) 
 {
 	assert(pthread_mutex_init(&procs_m_, 0) == 0);
 	assert(pthread_mutex_init(&count_m_, 0) == 0);
