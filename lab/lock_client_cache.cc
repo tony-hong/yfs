@@ -22,16 +22,29 @@ lock_client_cache::lock_client_cache(std::string xdst,
              class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
-  srand(time(NULL)^last_port);
-  rlock_port = ((rand()%32000) | (0x1 << 10));
+  // srand(time(NULL)^last_port);
+  // rlock_port = ((rand()%32000) | (0x1 << 10));
+  rlock_port = uniformIntDistribution(rndgen);
+  while(true){
+    try {
+        std::cout << "Trying port " << port << "..." << std::endl;
+        rpcs* rpcserver = new rpcs(port);
+        break;
+    } catch (PortBusyException e) {
+        std::cout << "Port " << port << " busy" << std::endl;
+        port = uniformIntDistribution(rndgen);
+    }
+  }
+  std::cout << "Port " << port << " OK" << std::endl;
+
   const char *hname;
-  // assert(gethostname(hname, 100) == 0);
   hname = "127.0.0.1";
+  // assert(gethostname(hname, 100) == 0);  
   std::ostringstream host;
   host << hname << ":" << rlock_port;
   id = host.str();
   last_port = rlock_port;
-  rpcs *rlsrpc = new rpcs(rlock_port);
+
   /* register RPC handlers with rlsrpc */
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry);
