@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iostream>
 #include <stdio.h>
+#include <random>
 
 
 static void *
@@ -22,8 +23,14 @@ lock_client_cache::lock_client_cache(std::string xdst,
              class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
+    
+  std::random_device rd;
+  std::mt19937 rndgen(rd());
+  std::uniform_int_distribution<int> uniformIntDistribution(1500, 65535); 
+    
   srand(time(NULL)^last_port);
-  rlock_port = ((rand()%32000) | (0x1 << 10));
+  //rlock_port = ((rand()%32000) | (0x1 << 10));
+  rlock_port = uniformIntDistribution(rndgen);
   const char *hname;
   // assert(gethostname(hname, 100) == 0);
   hname = "127.0.0.1";
@@ -31,7 +38,22 @@ lock_client_cache::lock_client_cache(std::string xdst,
   host << hname << ":" << rlock_port;
   id = host.str();
   last_port = rlock_port;
-  rpcs *rlsrpc = new rpcs(rlock_port);
+  //rpcs *rlsrpc = new rpcs(rlock_port);
+  
+  rpcs* rlsrpc;
+  
+  while (true) {
+        try {
+            std::cout << "Trying port " << rlock_port << "..." << std::endl;
+            rlsrpc = new rpcs(rlock_port);
+            break;
+        } catch (PortBusyException e) {
+            std::cout << "Port " << rlock_port << " busy" << std::endl;
+            rlock_port = uniformIntDistribution(rndgen);
+        }
+    }
+  
+  
   /* register RPC handlers with rlsrpc */
   rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache::revoke);
   rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache::retry);
