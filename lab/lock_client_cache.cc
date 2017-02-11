@@ -262,6 +262,8 @@ lock_client_cache::retry(lock_protocol::lockid_t lid, int &){
   if(ACQUIRING == c_lock.lock_state){
     c_lock.lock_state = NONE;
     pthread_cond_signal(&c_lock.ac_cv);
+    pthread_mutex_unlock(&c_lock.cached_lock_mutex);
+    return rlock_protocol::OK;
   }
   
   pthread_mutex_unlock(&c_lock.cached_lock_mutex);
