@@ -5,7 +5,6 @@
 #define lock_client_cache_h
 
 #include <string>
-#include <random>
 
 #include "lock_protocol.h"
 #include "rpc.h"
@@ -114,10 +113,6 @@ class lock_client_cache : public lock_client {
 
   //condition variables
   pthread_cond_t releaser_cv; //only the releaser thread should wait for this cv
-
-  std::random_device rd;
-  std::mt19937 rndgen(rd());
-  std::uniform_int_distribution<int> uniformIntDistribution(1500, 65535);
 
  public:
   static int last_port;

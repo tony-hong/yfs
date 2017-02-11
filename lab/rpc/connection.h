@@ -13,9 +13,9 @@
 
 class connection;
 
-class PortBusyException : public std::runtime_error {
-   using runtime_error::runtime_error;
-};
+// class PortBusyException : public std::runtime_error {
+//    using runtime_error::runtime_error;
+// };
 
 class chanmgr {
 	public:

@@ -6,7 +6,11 @@
 #include <sstream>
 #include <iostream>
 #include <stdio.h>
+#include <random>
 
+std::random_device rd;
+std::mt19937 rndgen(rd());
+std::uniform_int_distribution<int> uniformIntDistribution(1500, 65535);
 
 static void *
 releasethread(void *x)
@@ -22,20 +26,22 @@ lock_client_cache::lock_client_cache(std::string xdst,
              class lock_release_user *_lu)
   : lock_client(xdst), lu(_lu)
 {
+  rpcs* rlsrpc;
+
   // srand(time(NULL)^last_port);
   // rlock_port = ((rand()%32000) | (0x1 << 10));
   rlock_port = uniformIntDistribution(rndgen);
   while(true){
     try {
-        std::cout << "Trying port " << port << "..." << std::endl;
-        rpcs* rpcserver = new rpcs(port);
+        std::cout << "Trying port " << rlock_port << "..." << std::endl;
+        rlsrpc = new rpcs(rlock_port);
         break;
-    } catch (PortBusyException e) {
-        std::cout << "Port " << port << " busy" << std::endl;
-        port = uniformIntDistribution(rndgen);
+    } catch (std::string e) {
+        std::cout << "Port " << rlock_port << " busy" << std::endl;
+        rlock_port = uniformIntDistribution(rndgen);
     }
   }
-  std::cout << "Port " << port << " OK" << std::endl;
+  std::cout << "Port " << rlock_port << " OK" << std::endl;
 
   const char *hname;
   hname = "127.0.0.1";
